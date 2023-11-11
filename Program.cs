@@ -179,7 +179,7 @@ namespace SQLScripter
 
             string _connection_string = GetConnectionString(_serverSettings.SQLServer, _serverSettings.AuthenticationMode, _serverSettings.SQLUser, _serverSettings.SQLPassword);
             
-            SqlConnection _sql_connection = new SqlConnection(_connection_string);
+            //SqlConnection _sql_connection = new SqlConnection(_connection_string);
             //ServerConnection _server_connection = new ServerConnection(_sql_connection);
             ServerConnection _server_connection = new ServerConnection(_serverSettings.SQLServer);
             Server _server = new Server(_server_connection);
@@ -210,7 +210,7 @@ namespace SQLScripter
                 }
             }
 
-            //Script all databases
+            //Script ALL databases
             bool script_server_level_objects = true;
             if (script_all_databases)
             {
@@ -223,7 +223,7 @@ namespace SQLScripter
                         // If the database is not online skip it.
                         if (!_server.Databases[_fixed_database_name].IsAccessible)
                         {                            
-                            WriteToLog(_server_padded, database_padded, "Info", "Skiping this database since it is not in an ONLINE state.");
+                            WriteToLog(_server_padded, database_padded, "Info", "Skiping this database since it is not Accessible.");
                             break;
                         }
                         Script(_server_padded, database_padded, _server, _database, _object_types, _server_path, script_server_level_objects, _connection_string);
@@ -244,7 +244,7 @@ namespace SQLScripter
                         // If the database is not online skip it.
                         if (!_server.Databases[_fixed_database_name].IsAccessible)
                         {
-                            WriteToLog(_server_padded, database_padded, "Info", "Skiping this database since it is not in an ONLINE state.");
+                            WriteToLog(_server_padded, database_padded, "Info", "Skiping this database since it is not Accessible.");
                             break;
                         }
                         Script(_server_padded, database_padded, _server, _database, _object_types, _server_path, script_server_level_objects, _connection_string);
@@ -265,8 +265,6 @@ namespace SQLScripter
                         DeleteOutputFolder(_server_path, _server_padded);
                     }
             }
-
-
         }
         private static string GetTrialStartDate()
         {
@@ -3554,9 +3552,9 @@ namespace SQLScripter
         private static void WriteHeader()
         {
             WriteToLog("", "", "Info", "");
-            WriteToLog("", "", "Info", "----------------------------------------------");
+            WriteToLog("", "", "Info", "---------------------------------------");
             WriteToLog("", "", "Info", string.Format("{0} {1} Edition Version {2}", ApplicationName, Edition, MyAssembly));
-            WriteToLog("", "", "Info", "Copyright (C) 2006-2018 www.sqlserverutilities.com. All rights reserved.");
+            WriteToLog("", "", "Info", "Copyright (C) 2006-2023 www.sqlserverutilities.com. All rights reserved.");
         }
 
 
