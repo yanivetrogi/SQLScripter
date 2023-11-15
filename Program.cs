@@ -53,7 +53,7 @@ namespace SQLScripter
         private static string MyAssembly;
         private static string Edition;
 
-        private static bool skip_liscense_check = true; /* For speed of testing */
+        private static bool skip_liscense_check = false; /* For speed of testing */
 
         
         static void Main(string[] args)
@@ -1201,21 +1201,28 @@ namespace SQLScripter
                 {
                     if (!p.IsSystemObject)
                     {
-                        StreamWriter writer = CreateStreamWriter(server_path, server_padded, database_padded, object_type, p.Name);
-                        writer.Write(GetGenericInformation(server_padded, database_padded));
-                        StringCollection sc = p.Script(so);
-                        bool create_database = true;
-
-                        foreach (string s in sc)
+                        if (p.IsEncrypted)
                         {
-                            if (create_database)
-                            {
-                                writer.WriteLine(string.Format("USE {0}; {1}", database_padded.TrimEnd(), Environment.NewLine + "GO"));
-                                create_database = false;
-                            }
-                            writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO");
+                            WriteToLog(server_padded, database_padded, "Info", string.Format("{0} is Encrypted.", p.Name));
                         }
-                        writer.Close();
+                        else
+                        {
+                            StreamWriter writer = CreateStreamWriter(server_path, server_padded, database_padded, object_type, p.Name);
+                            writer.Write(GetGenericInformation(server_padded, database_padded));
+                            StringCollection sc = p.Script(so);
+                            bool create_database = true;
+
+                            foreach (string s in sc)
+                            {
+                                if (create_database)
+                                {
+                                    writer.WriteLine(string.Format("USE {0}; {1}", database_padded.TrimEnd(), Environment.NewLine + "GO"));
+                                    create_database = false;
+                                }
+                                writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO");
+                            }
+                            writer.Close();
+                        }
                     }
                 }
                 catch (Exception e) { WriteToLog(server_padded, database_padded, "Error", e); }
@@ -1242,17 +1249,24 @@ namespace SQLScripter
                 {
                     if (!p.IsSystemObject)
                     {
-                        StringCollection sc = p.Script(so);
-                        foreach (string s in sc)
+                        if (p.IsEncrypted)
                         {
-                            if (!s.StartsWith("SET"))
-                            {
-                                writer.WriteLine("-- " + i.ToString() + Environment.NewLine + "GO");
-                                writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO" + Environment.NewLine + Environment.NewLine);
-                                i++;
-                            }
+                            WriteToLog(server_padded, database_padded, "Info", string.Format("{0} is Encrypted.", p.Name));
                         }
-                        writer.Flush();
+                        else
+                        {
+                            StringCollection sc = p.Script(so);
+                            foreach (string s in sc)
+                            {
+                                if (!s.StartsWith("SET"))
+                                {
+                                    writer.WriteLine("-- " + i.ToString() + Environment.NewLine + "GO");
+                                    writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO" + Environment.NewLine + Environment.NewLine);
+                                    i++;
+                                }
+                            }
+                            writer.Flush();
+                        }
                     }
                 }
                 catch (Exception e)
@@ -1538,21 +1552,28 @@ namespace SQLScripter
                 {
                     if (!f.IsSystemObject)
                     {
-                        StreamWriter writer = CreateStreamWriter(server_path, server_padded, database_padded, object_type, f.Name);
-                        writer.Write(GetGenericInformation(server_padded, database_padded));
-                        StringCollection sc = f.Script(so);
-                        bool use_database = true;
-
-                        foreach (string s in sc)
+                        if (f.IsEncrypted)
                         {
-                            if (use_database)
-                            {
-                                writer.WriteLine(string.Format("USE {0}; {1}", database_padded.TrimEnd(), Environment.NewLine + "GO"));
-                                use_database = false;
-                            }
-                            writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO");
+                            WriteToLog(server_padded, database_padded, "Info", string.Format("{0} is Encrypted.", f.Name));
                         }
-                        writer.Close();
+                        else
+                        {
+                            StreamWriter writer = CreateStreamWriter(server_path, server_padded, database_padded, object_type, f.Name);
+                            writer.Write(GetGenericInformation(server_padded, database_padded));
+                            StringCollection sc = f.Script(so);
+                            bool use_database = true;
+
+                            foreach (string s in sc)
+                            {
+                                if (use_database)
+                                {
+                                    writer.WriteLine(string.Format("USE {0}; {1}", database_padded.TrimEnd(), Environment.NewLine + "GO"));
+                                    use_database = false;
+                                }
+                                writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO");
+                            }
+                            writer.Close();
+                        }
                     }
                 }
                 catch (Exception e)
@@ -1589,17 +1610,24 @@ namespace SQLScripter
                 {
                     if (!f.IsSystemObject)
                     {
-                        StringCollection sc = f.Script(so);
-                        writer.WriteLine("-- " + i.ToString() + Environment.NewLine + "GO");
-                        foreach (string s in sc)
+                        if (f.IsEncrypted)
                         {
-                            if (!s.StartsWith("SET"))
-                            {
-                                writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO" + Environment.NewLine + Environment.NewLine);
-                            }
+                            WriteToLog(server_padded, database_padded, "Info", string.Format("{0} is Encrypted.", f.Name));
                         }
-                        i++;
-                        writer.Flush();
+                        else
+                        {
+                            StringCollection sc = f.Script(so);
+                            writer.WriteLine("-- " + i.ToString() + Environment.NewLine + "GO");
+                            foreach (string s in sc)
+                            {
+                                if (!s.StartsWith("SET"))
+                                {
+                                    writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO" + Environment.NewLine + Environment.NewLine);
+                                }
+                            }
+                            i++;
+                            writer.Flush();
+                        }
                     }
                 }
                 catch (Exception e)
