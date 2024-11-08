@@ -40,32 +40,66 @@ namespace SQLScripter
         private static bool DeleteOutputFolderAfterZip;
         private static int DaysToKeepFilesInOutputFolder;
         private static bool ScriptOneFilePerObjectType;
-        
+
         public static int SqlServerMaxNameLength;
         private static int SqlDatabaseMaxNameLength;
 
         private static string master = "master";
         private static string msdb = "msdb";
 
+        //private static List<FailedServers> FailedServersList = new List<FailedServers>();
+
         private static string ApplicationName;
         private static string MyAssembly;
         private static string Edition;
-        
+
+<<<<<<< HEAD
+        private static bool skip_liscense_check = false; /* For speed of testing */
+=======
+        //private static bool skip_liscense_check = true; /* For speed of testing */
+
+
+>>>>>>> 210e62a (Encryption for procedures and functions)
+
         static void Main(string[] args)
         {
             try
             {
                 ApplicationName = ProductName;
                 SetConsole();
-                
+
+                // Not relevant when the repo has changed to Public.
+                /*
+                if (!skip_liscense_check) // Skip license check for speed of testing
+                {
+                    Edition = License.CheckLicense();
+
+                    // If not licensed then check to see if trial has expired
+                    if (Edition == "Trial")
+                    {
+                        if (IsTrailExpired(GetTrialStartDate()))
+                        {
+                            ExitApplication(3);
+                        }
+                    }
+                }
+                */
+
                 GetAppConfig();
                 MyAssembly = GetAssemblyVersion();
+                Edition = "Enterprise"; // Required because skip_liscense_check is set true.
 
                 Servers Servers = new Servers();
                 Servers.Load();
 
                 WriteHeader();
 
+
+                // Not relevant when the repo has changed to Public.
+                /*
+                // Validate number of server permitted by the license.
+                   ValidateNumberOfServers(Servers);
+                */
 
                 // Loop through all servers and populate a list of failed servers
                 TestServersConnection(Servers);
@@ -74,14 +108,15 @@ namespace SQLScripter
                 SetDatabseMaxNameLengthForPadding(Servers);
 
 
-                // All the scripting work done here
+                // All the scripting work done here.
+                // Loop over the servers while process each server in a thread.
                 Thread[] ThreadArr = new Thread[50];
                 foreach (ServerSettings serverSettings in Servers.ServerSettingsList)
                 {
                     if (serverSettings.connnectionOK)
                     {
                         int k = GetFreeThread(ThreadArr);
-                        ThreadArr[k] = new Thread(new ParameterizedThreadStart(DoWork)); // All the work done here
+                        ThreadArr[k] = new Thread(new ParameterizedThreadStart(DoWork)); // All the work done here.
                         ThreadArr[k].Name = serverSettings.SQLServer;
                         ThreadArr[k].Start(serverSettings);
                     }
@@ -99,12 +134,12 @@ namespace SQLScripter
                     }
                 }
             }
-            catch (Exception e) 
-            { 
+            catch (Exception e)
+            {
                 WriteToLog("", master, "Error", e);
                 ExitApplication(1);
             }
-            
+
             ExitApplication(0);
         }
 
@@ -126,12 +161,13 @@ namespace SQLScripter
                 Thread.Sleep(10);
             }
         }
+        
         private static void DoWork(object serverSettings)
         {
             ServerSettings _serverSettings = (ServerSettings)serverSettings;
 
             string _connection_string = GetConnectionString(_serverSettings.SQLServer, _serverSettings.AuthenticationMode, _serverSettings.SQLUser, _serverSettings.SQLPassword);
-            
+
             ServerConnection _server_connection = new ServerConnection(_serverSettings.SQLServer);
             Server _server = new Server(_server_connection);
 
@@ -148,7 +184,7 @@ namespace SQLScripter
             // Populate a list with the databases we got from Servers.config
             List<string> _databses_list = new List<string>();
             bool script_all_databases = false;
-            foreach (string _db in _databses_from_configuration) 
+            foreach (string _db in _databses_from_configuration)
             {
                 if (!String.IsNullOrWhiteSpace(_db))
                 {
@@ -173,7 +209,7 @@ namespace SQLScripter
                     {
                         // If the database is not online skip it.
                         if (!_server.Databases[_fixed_database_name].IsAccessible)
-                        {                            
+                        {
                             WriteToLog(_server_padded, database_padded, "Info", "Skiping this database since it is not Accessible.");
                             continue;
                         }
@@ -189,7 +225,7 @@ namespace SQLScripter
                 {
                     string database_padded = AlignString(FixDatabaseName(_database.ToString()), SqlDatabaseMaxNameLength);
                     string _fixed_database_name = FixDatabaseName(_database.ToString()).ToUpper();
-                    
+
                     if (_databses_list.Contains(_fixed_database_name))
                     {
                         // If the database is not online skip it.
@@ -203,15 +239,15 @@ namespace SQLScripter
                     }
                 }
             }
-
-            if (ZipFolder ) 
+                        
+            if (ZipFolder)
             {
                 // if the zip is success then delete the unziped files in the folder + the folder.
                 WriteToLog(_server_padded, master, "Info", string.Format("Zipping folder {0}", _server_path));
                 if (ZipIt(_server_path, _server_path + ".zip", ZipPassword))
-                    if (DeleteOutputFolderAfterZip )
+                    if (DeleteOutputFolderAfterZip)
                     {
-                        WriteToLog(_server_padded, master , "Info", "Deleting the OutputFolder after the zip");
+                        WriteToLog(_server_padded, master, "Info", "Deleting the OutputFolder after the zip");
                         DeleteOutputFolder(_server_path, _server_padded);
                     }
             }
@@ -239,7 +275,7 @@ namespace SQLScripter
                     System.Globalization.DateTimeFormatInfo dtfi = new DateTimeFormatInfo();
                     date = DateTime.Now.Date.ToString(dtfi.ShortDatePattern);
                     date = date.Replace("/", "");
-                    date = "606732445676" + date + "233211"; 
+                    date = "606732445676" + date + "233211";
                     key.SetValue("Type", date);
                 }
 
@@ -323,7 +359,7 @@ namespace SQLScripter
         private static void SetDatabseMaxNameLength(object serverSettings)
         {
             ServerSettings _serverSettings = (ServerSettings)serverSettings;
-            
+
             string _connection_string = GetConnectionString(_serverSettings.SQLServer, _serverSettings.AuthenticationMode, _serverSettings.SQLUser, _serverSettings.SQLPassword);
 
             SqlConnection _sql_connection = new SqlConnection(_connection_string);
@@ -342,7 +378,7 @@ namespace SQLScripter
 
 
             string[] _databses_from_configuration = _serverSettings.Databases.Split(new Char[] { ';' });
-            
+
             bool script_all_databases = false;
             foreach (string _database in _databses_from_configuration)
             {
@@ -362,7 +398,7 @@ namespace SQLScripter
                     }
                 }
             }
-            
+
             if (script_all_databases)
             {
                 foreach (Database _database in _server.Databases)
@@ -409,7 +445,6 @@ namespace SQLScripter
             //    FailedServersList.Add(new FailedServers { server_name = _server_name });
             //}
         }
-
         private static bool IsConnectionSuccess(string connectionString, string server, string database)
         {
             try
@@ -451,9 +486,9 @@ namespace SQLScripter
                 }
             }
             catch (Exception e) { WriteToLog(server, database, "Error", e); return false; throw; }
-            
+
         }
-        private static string  FixServerName(string server)
+        private static string FixServerName(string server)
         {
             // Replace the back slash for a named instance so that the name can be used as a valid name for a folder name
             string _serverFixedName = server.Trim();
@@ -477,36 +512,36 @@ namespace SQLScripter
             string object_name = string.Empty;
             switch (object_type)
             {
-                case  "U"    : {object_name = "Tables";} break;
-                case  "V"    : {object_name = "Views";} break;
-                case  "P"    : { object_name = "Procedures"; } break;
-                case  "C"    : { object_name = "Checks"; } break;
-                case "FK"    : { object_name = "ForeignKeys"; } break;
-                case "TR"    : { object_name = "Triggers"; } break;
-                case "PS"    : { object_name = "PartitionSchemas"; } break;
-                case "PF"    : { object_name = "PartitionFunctions"; } break;
-                case  "I"    : { object_name = "Indexes"; } break;
-                case  "A"    : { object_name = "Assemblies"; } break;
-                case "FN"    : { object_name = "Functions"; } break;
-                case "UDDT"  : { object_name = "UserDefinedDataTypes"; } break;
-                case "UDTT"  : { object_name = "UserDefinedTableTypes"; } break;
-                case "UDT"   : { object_name = "UserDefinedTypes"; } break;
-                case "SN"    : { object_name = "Synonyms"; } break;
-                case "FG"    : { object_name = "FileGroups"; } break;
-                case "PG"    : { object_name = "PlanGuides"; } break;
-                case "RL"    : { object_name = "Roles"; } break;
-                case "SC"    : { object_name = "Schemas"; } break;
-                case "US"    : { object_name = "Users"; } break;
+                case "U": { object_name = "Tables"; } break;
+                case "V": { object_name = "Views"; } break;
+                case "P": { object_name = "Procedures"; } break;
+                case "C": { object_name = "Checks"; } break;
+                case "FK": { object_name = "ForeignKeys"; } break;
+                case "TR": { object_name = "Triggers"; } break;
+                case "PS": { object_name = "PartitionSchemas"; } break;
+                case "PF": { object_name = "PartitionFunctions"; } break;
+                case "I": { object_name = "Indexes"; } break;
+                case "A": { object_name = "Assemblies"; } break;
+                case "FN": { object_name = "Functions"; } break;
+                case "UDDT": { object_name = "UserDefinedDataTypes"; } break;
+                case "UDTT": { object_name = "UserDefinedTableTypes"; } break;
+                case "UDT": { object_name = "UserDefinedTypes"; } break;
+                case "SN": { object_name = "Synonyms"; } break;
+                case "FG": { object_name = "FileGroups"; } break;
+                case "PG": { object_name = "PlanGuides"; } break;
+                case "RL": { object_name = "Roles"; } break;
+                case "SC": { object_name = "Schemas"; } break;
+                case "US": { object_name = "Users"; } break;
 
-                case "DT"    : { object_name = "DDLDatabaseTriggers"; } break;
+                case "DT": { object_name = "DDLDatabaseTriggers"; } break;
 
-                case  "J"    : { object_name = "Jobs"; } break;
-                case "LS"    : { object_name = "LinkedServers"; } break;
-                case "PA"    : { object_name = "ProxyAccounts"; } break;
-                case "ST"    : { object_name = "DDLServerTriggers"; } break;
-                case "CR"    : { object_name = "Credentials"; } break;
-                case "L"     : { object_name = "Logins"; } break;
-                    
+                case "J": { object_name = "Jobs"; } break;
+                case "LS": { object_name = "LinkedServers"; } break;
+                case "PA": { object_name = "ProxyAccounts"; } break;
+                case "ST": { object_name = "DDLServerTriggers"; } break;
+                case "CR": { object_name = "Credentials"; } break;
+                case "L": { object_name = "Logins"; } break;
+
             }
             return object_name;
         }
@@ -585,100 +620,123 @@ namespace SQLScripter
                                         object_type = "ST";
                                         ScriptDDLServerTriggers(server_padded, master, server, database, server_path, GetObjectNameByType(object_type));
                                     }
-                                } break;
+                                }
+                                break;
                             case "U":
                                 {
                                     ScriptTables(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "V":
                                 {
                                     ScriptViews(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "P":
                                 {
                                     ScriptProcedures(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "C":
                                 {
                                     ScriptChecks(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "FK":
                                 {
                                     ScriptForeignKeys(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "TR":
                                 {
                                     ScriptTriggers(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "PS":
                                 {
                                     ScriptPartitionScemas(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "PF":
                                 {
                                     ScriptPartitionFunctions(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "I":
                                 {
                                     ScriptIndexes(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "A":
                                 {
                                     ScriptAssemblies(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "FN":
                                 {
                                     ScriptFunctions(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
 
-                                } break;
+                                }
+                                break;
                             case "UDDT":
                                 {
                                     ScriptUserDefinedDataTypes(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "UDTT":
                                 {
                                     ScriptUserDefinedTableTypes(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "UDT":
                                 {
                                     ScriptUserDefinedTypes(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "SN":
                                 {
                                     ScriptSynonyms(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "FG":
                                 {
                                     ScriptFileGroups(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type), connection_string);
-                                } break;
+                                }
+                                break;
                             case "PG":
                                 {
                                     ScriptPlanGuides(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "RL":
                                 {
                                     ScriptRoles(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "SC":
                                 {
                                     ScriptSchemas(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
                             case "US":
                                 {
                                     ScriptUsers(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
 
 
                             case "DT":
                                 {
                                     ScriptDDLDatabaseTriggers(server_padded, database_padded, server, database, server_path, GetObjectNameByType(object_type));
-                                } break;
+                                }
+                                break;
 
                             case "NFR":
                                 {
                                     NFR_Triggers(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type), true);
                                     NFR_Foreignkeys(server_padded, database_padded, database, server_path, GetObjectNameByType(object_type), true);
-                                } break;
+                                }
+                                break;
 
 
 
@@ -690,47 +748,54 @@ namespace SQLScripter
                                     {
                                         ScriptJobs(server_padded, msdb, server, database, server_path, GetObjectNameByType(object_type));
                                     }
-                                } break;
+                                }
+                                break;
                             case "LS":
                                 {
                                     if (script_server_level_objects)
                                     {
                                         ScriptLinkedServers(server_padded, master, server, database, server_path, GetObjectNameByType(object_type));
                                     }
-                                } break;
+                                }
+                                break;
                             case "PA":
                                 {
                                     if (script_server_level_objects)
                                     {
                                         ScriptProxyAccounts(server_padded, master, server, database, server_path, GetObjectNameByType(object_type));
                                     }
-                                } break;
+                                }
+                                break;
                             case "ST":
                                 {
                                     if (script_server_level_objects)
                                     {
                                         ScriptDDLServerTriggers(server_padded, master, server, database, server_path, GetObjectNameByType(object_type));
                                     }
-                                } break;
+                                }
+                                break;
                             case "CR":
                                 {
                                     if (script_server_level_objects)
                                     {
                                         ScriptCredentials(server_padded, master, server, database, server_path, GetObjectNameByType(object_type));
                                     }
-                                } break;
+                                }
+                                break;
                             case "L":
                                 {
                                     if (script_server_level_objects)
                                     {
                                         ScriptLogins(server_padded, master, server_path, GetObjectNameByType(object_type), connection_string);
                                     }
-                                } break;
+                                }
+                                break;
 
                             default:
                                 {
                                     WriteToLog(server_padded, database_padded, "Error", "Unsupported object type");
-                                } break;
+                                }
+                                break;
                         }
                     }
                 }
@@ -1029,7 +1094,7 @@ namespace SQLScripter
 
             // If the 2 Microsoft procedures do not exist on the server then we create them
             string _procedure = "sp_hexadecimal";
-            if(!IsProcedureExists(server_padded, database_padded, server_path, GetObjectNameByType(object_type), connection_string, _procedure))
+            if (!IsProcedureExists(server_padded, database_padded, server_path, GetObjectNameByType(object_type), connection_string, _procedure))
             {
                 string _command = "CREATE PROCEDURE sp_hexadecimal @binvalue varbinary(256), @hexvalue varchar (514) OUTPUT AS DECLARE @charvalue varchar (514),@i int, @length int, @hexstring char(16) SELECT @charvalue = '0x', @i = 1, @length = DATALENGTH (@binvalue), @hexstring = '0123456789ABCDEF' WHILE (@i <= @length) BEGIN; DECLARE @tempint int, @firstint int, @secondint int; SELECT @tempint = CONVERT(int, SUBSTRING(@binvalue,@i,1)), @firstint = FLOOR(@tempint/16), @secondint = @tempint - (@firstint*16), @charvalue = @charvalue +  SUBSTRING(@hexstring, @firstint+1, 1) +  SUBSTRING(@hexstring, @secondint+1, 1), @i = @i + 1 END SELECT @hexvalue = @charvalue;";
                 CreateProcedure(server_padded, database_padded, server_path, GetObjectNameByType(object_type), connection_string, _command);
@@ -1249,9 +1314,9 @@ namespace SQLScripter
                     writer.Write(GetGenericInformation(server_padded, database_padded));
                     writer.WriteLine(string.Format("USE {0}; {1}", database_padded.TrimEnd(), Environment.NewLine + "GO" + Environment.NewLine));
 
-                    string s = (string.Format("IF NOT EXISTS (SELECT groupname FROM sys.sysfilegroups WHERE groupname = '{0}') " 
+                    string s = (string.Format("IF NOT EXISTS (SELECT groupname FROM sys.sysfilegroups WHERE groupname = '{0}') "
                         + Environment.NewLine + " ALTER DATABASE [{1}] ADD FILEGROUP [{0}];", _file_group, database_padded.Trim()));
-                    
+
                     writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO");
                     writer.Close();
                 }
@@ -1270,7 +1335,7 @@ namespace SQLScripter
 
                 string _command = string.Format("USE [{0}]; SELECT groupname FROM sys.sysfilegroups WHERE groupname NOT LIKE 'PRIMARY';", database_padded.Trim());
                 DataSet _ds = SqlClient.ExecuteDataset(connection_string, _command);
-                
+
                 foreach (DataRow row in _ds.Tables[0].Rows)
                 {
                     string _file_group = row["groupname"].ToString();
@@ -1312,7 +1377,7 @@ namespace SQLScripter
                         }
                         writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO");
                     }
-                    writer.Close();                    
+                    writer.Close();
                 }
                 catch (Exception e) { WriteToLog(server_padded, database_padded, "Error", e); }
             }
@@ -1404,7 +1469,7 @@ namespace SQLScripter
                 try
                 {
                     StringCollection sc = ch.Script(so);
-                    
+
                     foreach (string s in sc)
                     {
                         if (!s.StartsWith("SET"))
@@ -1674,10 +1739,10 @@ namespace SQLScripter
             writer.Write(GetGenericInformation(server_padded, database_padded));
             writer.WriteLine(string.Format("USE {0}; {1}", database_padded.TrimEnd(), Environment.NewLine + "GO" + Environment.NewLine));
             writer.WriteLine("SET ANSI_NULLS ON; SET QUOTED_IDENTIFIER ON;" + Environment.NewLine + "GO" + Environment.NewLine + Environment.NewLine);
-            
+
             try
             {
-                SqlDataReader _reader = SqlClient.ExecuteReader(connection_string, CommandType.StoredProcedure , _command);
+                SqlDataReader _reader = SqlClient.ExecuteReader(connection_string, CommandType.StoredProcedure, _command);
                 _reader.Read();
 
                 if (_reader.HasRows)
@@ -1711,7 +1776,7 @@ namespace SQLScripter
 
                 int _i = (int)SqlClient.ExecuteScalar(connection_string, CommandType.Text, _command);
 
-                if (_i == 1) {return true;} else {return false;}
+                if (_i == 1) { return true; } else { return false; }
             }
             catch (Exception e) { WriteToLog(server_padded, database_padded, "Error", e); return false; }
         }
@@ -2120,7 +2185,7 @@ namespace SQLScripter
                         writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO");
                     }
                     writer.Close();
-                    
+
                 }
                 catch (Exception e)
                 {
@@ -2384,7 +2449,7 @@ namespace SQLScripter
             ScriptingOptions so = new ScriptingOptions();
             so.AnsiFile = true;
 
-            foreach ( ProxyAccount pa in server.JobServer.ProxyAccounts /* Credential ls in server.Credentials */ )
+            foreach (ProxyAccount pa in server.JobServer.ProxyAccounts /* Credential ls in server.Credentials */ )
             {
                 try
                 {
@@ -2584,7 +2649,7 @@ namespace SQLScripter
             so.DriForeignKeys = false;
             so.DriDefaults = true;
             so.DriChecks = true;
-            
+
             so.DriPrimaryKey = true;
             so.DriUniqueKeys = true;
             so.ClusteredIndexes = true;
@@ -2761,21 +2826,21 @@ namespace SQLScripter
                     StringCollection sc = dt.Script(so);
                     bool use_database = true;
 
-                    StreamWriter writer = CreateStreamWriter(server_path, server_padded, database_padded, object_type, dt.Name );
+                    StreamWriter writer = CreateStreamWriter(server_path, server_padded, database_padded, object_type, dt.Name);
                     writer.Write(GetGenericInformation(server_padded, database_padded));
                     foreach (string s in sc)
                     {
                         //if (s.Contains("TRIGGER"))
                         //{
-                            // Get the word that follows CONSTRAINT which is the constraint name so that we add it to the file name for uniqunes
-                            //string name = GetNextWord(s, "TRIGGER");
-                            //StreamWriter writer = CreateStreamWriter(server_path, server_padded, database_padded, object_type, t.Name + "--" + name);
-                            if (use_database)
-                            {
-                                writer.WriteLine(string.Format("USE {0}; {1}", database_padded.TrimEnd(), Environment.NewLine + "GO"));
-                                use_database = false;
-                            }
-                            writer.WriteLine(s.TrimEnd() + ";" + Environment.NewLine + "GO");
+                        // Get the word that follows CONSTRAINT which is the constraint name so that we add it to the file name for uniqunes
+                        //string name = GetNextWord(s, "TRIGGER");
+                        //StreamWriter writer = CreateStreamWriter(server_path, server_padded, database_padded, object_type, t.Name + "--" + name);
+                        if (use_database)
+                        {
+                            writer.WriteLine(string.Format("USE {0}; {1}", database_padded.TrimEnd(), Environment.NewLine + "GO"));
+                            use_database = false;
+                        }
+                        writer.WriteLine(s.TrimEnd() + ";" + Environment.NewLine + "GO");
                         //}
                     }
                     writer.Close();
@@ -2885,7 +2950,7 @@ namespace SQLScripter
                         writer.WriteLine("-- " + i.ToString() + Environment.NewLine + "GO");
                         foreach (string s in sc)
                         {
-                            if (!s.StartsWith("SET") && ! s.Contains("CREATE TABLE"))
+                            if (!s.StartsWith("SET") && !s.Contains("CREATE TABLE"))
                             {
                                 writer.WriteLine(s.TrimEnd() + Environment.NewLine + "GO" + Environment.NewLine + Environment.NewLine);
                             }
@@ -3089,7 +3154,7 @@ namespace SQLScripter
                                 writer.WriteLine("GO" + Environment.NewLine);
                             }
                         }
-                       
+
                         writer.Flush();
                     }
                     catch (Exception e) { WriteToLog(server_padded, database_padded, "Error", e); }
@@ -3105,7 +3170,7 @@ namespace SQLScripter
             ScriptingOptions so = new ScriptingOptions();
             so.AllowSystemObjects = false;
             so.AnsiFile = true;
-           
+
             so.DriPrimaryKey = true;
             so.DriUniqueKeys = true;
             so.ClusteredIndexes = true;
@@ -3121,13 +3186,13 @@ namespace SQLScripter
             {
                 try
                 {
-                    if (!t.IsSystemObject && t.Indexes.Count > 0 )
+                    if (!t.IsSystemObject && t.Indexes.Count > 0)
                     {
                         foreach (Index idx in t.Indexes)
                         {
                             StringCollection sc = idx.Script(so);
                             writer.WriteLine("-- " + i.ToString() + Environment.NewLine + "GO");
-                                
+
                             foreach (string s in sc)
                             {
                                 if (!s.StartsWith("SET"))
@@ -3191,7 +3256,7 @@ namespace SQLScripter
         {
             string results = string.Empty;
             string[] words = search_string.Split(new char[] { ' ' });
-            
+
             for (int i = 0; i < words.Length - 1; i++)
             {
                 if (words[i].Equals(string_to_find))
@@ -3208,7 +3273,7 @@ namespace SQLScripter
             Regex r = new Regex(@"\s|(dbo)|\[|\]|\.|:", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
             return r.Replace(input, String.Empty);
         }
-        private static StreamWriter CreateStreamWriter(string server_path, string server, string database, string object_type,string file_name )
+        private static StreamWriter CreateStreamWriter(string server_path, string server, string database, string object_type, string file_name)
         {
             string _server = FixServerName(server);
             string _database = FixDatabaseName(database);
@@ -3234,7 +3299,7 @@ namespace SQLScripter
                 //file_name = RemoveSpecialCharacters(file_name);
 
                 string _file_full_name = Path.Combine(_current_path, file_name + ".sql");
-                
+
 
                 StreamWriter writer = new StreamWriter(_file_full_name);
                 return writer;
@@ -3248,7 +3313,7 @@ namespace SQLScripter
                 StringBuilder _sb = new StringBuilder();
                 _sb.AppendLine("/*");
                 _sb.AppendLine(string.Format("  {0} {1}" + " Edition Version {2}", ApplicationName, Edition, MyAssembly));
-                _sb.AppendLine(string.Format("  Scripted on SQL Server instance {0} at {1}", server.TrimEnd(), DateTime.Now.ToString() ));
+                _sb.AppendLine(string.Format("  Scripted on SQL Server instance {0} at {1}", server.TrimEnd(), DateTime.Now.ToString()));
                 _sb.AppendLine("*/");
                 _sb.AppendLine("");
 
@@ -3314,7 +3379,7 @@ namespace SQLScripter
                 log.Info(server + " " + database + " " + method + " " + message);
             }
 
-                if (severity == "Debug")
+            if (severity == "Debug")
             {
                 log.Debug(server + " " + database + " " + method + " " + message);
             }
@@ -3354,17 +3419,17 @@ namespace SQLScripter
                 ZipFolder = Convert.ToBoolean(ConfigurationManager.AppSettings["ZipFolder"]);
                 ZipPassword = ConfigurationManager.AppSettings["ZipPassword"].ToString();
                 OutputFolder = ConfigurationManager.AppSettings["OutputFolder"].ToString();
-                DeleteOutputFolderAfterZip = Convert.ToBoolean( ConfigurationManager.AppSettings["DeleteOutputFolderAfterZip"] );
+                DeleteOutputFolderAfterZip = Convert.ToBoolean(ConfigurationManager.AppSettings["DeleteOutputFolderAfterZip"]);
                 DaysToKeepFilesInOutputFolder = Convert.ToInt32(ConfigurationManager.AppSettings["DaysToKeepFilesInOutputFolder"]);
                 ScriptOneFilePerObjectType = Convert.ToBoolean(ConfigurationManager.AppSettings["ScriptOneFilePerObjectType"]);
-                
+
             }
             catch (Exception e) { WriteToLog("", master, "Error", e); throw; }
         }
         private static void ExitApplication(int exit_code)
         {
-            if(Environment.UserInteractive)
-            { 
+            if (Environment.UserInteractive)
+            {
                 Console.WriteLine("Press any key to exit...");
                 Console.Read();
             }
@@ -3437,7 +3502,7 @@ namespace SQLScripter
         }
         private static ArrayList GenerateFileList(string Dir)
         {
-           System.Collections.ArrayList mid = new ArrayList();
+            System.Collections.ArrayList mid = new ArrayList();
             bool Empty = true;
             foreach (string file in Directory.GetFiles(Dir)) // add each file in directory
             {
@@ -3466,7 +3531,7 @@ namespace SQLScripter
         private static void DeleteOutputFolder(string path, string server)
         {
             try
-            {   
+            {
                 Directory.Delete(path, true);
                 //WriteToLog(server, master, "Info", string.Format("Deleting folder {0}...", path));
             }
@@ -3493,9 +3558,9 @@ namespace SQLScripter
                 DateTime _trial_trial_expiration_value = _trial_value.AddDays(30);
 
                 TimeSpan ts = _trial_trial_expiration_value - _now;
-                int _remaining_days_ = Convert.ToInt32( ts.TotalDays);
+                int _remaining_days_ = Convert.ToInt32(ts.TotalDays);
 
-                if(_remaining_days_ < 0)
+                if (_remaining_days_ < 0)
                 {
                     WriteToLog("", "", "Info", string.Format("{0} Trial has expired ", ApplicationName));
                     return true;
@@ -3509,7 +3574,7 @@ namespace SQLScripter
         {
             int iDay, iMon, iYear;
             DateTime ValidDate = DateTime.Now;
-           
+
             //string day, month, year;
 
             //month = strNum.Substring(0, 2);
@@ -3539,5 +3604,5 @@ namespace SQLScripter
 
     }
 
-    
+
 }
