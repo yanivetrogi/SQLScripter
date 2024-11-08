@@ -1,15 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using log4net;
-using log4net.Config;
 using System.Diagnostics;
 using System.Reflection;
 using System.Configuration;
 using Microsoft.SqlServer.Management.Smo;
 using Microsoft.SqlServer.Management.Smo.Agent;
-using Microsoft.SqlServer.Management.Sdk.Sfc;
 using Microsoft.SqlServer.Management.Common;
 using System.Collections;
 using ICSharpCode.SharpZipLib.Zip;
