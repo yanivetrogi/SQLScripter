@@ -25,7 +25,7 @@
 using System;
 using System.Data;
 using System.Xml;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -63,7 +63,7 @@ namespace SQLScripter
         /// </summary>
         /// <param name="command">The command to which the parameters will be added</param>
         /// <param name="commandParameters">An array of SqlParameters to be added to command</param>
-        private static void AttachParameters(SqlCommand command, SqlParameter[] commandParameters)
+        private static void AttachParameters(SqlCommand command, SqlParameter[]? commandParameters)
         {
 			if( command == null ) throw new ArgumentNullException( "command" );
 			if( commandParameters != null )
@@ -90,7 +90,7 @@ namespace SQLScripter
         /// </summary>
         /// <param name="commandParameters">Array of SqlParameters to be assigned values</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values</param>
-        private static void AssignParameterValues(SqlParameter[] commandParameters, DataRow dataRow)
+        private static void AssignParameterValues(SqlParameter[]? commandParameters, DataRow? dataRow)
         {
             if ((commandParameters == null) || (dataRow == null)) 
             {
@@ -109,7 +109,7 @@ namespace SQLScripter
 						string.Format( 
 							"Please provide a valid parameter name on the parameter #{0}, the ParameterName property has the following value: '{1}'.", 
 							i, commandParameter.ParameterName ) );
-                if (dataRow.Table.Columns.IndexOf(commandParameter.ParameterName.Substring(1)) != -1)
+                if (dataRow != null && dataRow.Table.Columns.IndexOf(commandParameter.ParameterName.Substring(1)) != -1)
                     commandParameter.Value = dataRow[commandParameter.ParameterName.Substring(1)];
 				i++;
             }
@@ -120,7 +120,7 @@ namespace SQLScripter
         /// </summary>
         /// <param name="commandParameters">Array of SqlParameters to be assigned values</param>
         /// <param name="parameterValues">Array of objects holding the values to be assigned</param>
-        private static void AssignParameterValues(SqlParameter[] commandParameters, object[] parameterValues)
+        private static void AssignParameterValues(SqlParameter[]? commandParameters, object[]? parameterValues)
         {
             if ((commandParameters == null) || (parameterValues == null)) 
             {
@@ -173,7 +173,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParameters to be associated with the command or 'null' if no parameters are required</param>
         /// <param name="mustCloseConnection"><c>true</c> if the connection was opened by the method, otherwose is false.</param>
-        public static void PrepareCommand(SqlCommand command, SqlConnection connection, SqlTransaction transaction, CommandType commandType, string commandText, SqlParameter[] commandParameters, out bool mustCloseConnection )
+        public static void PrepareCommand(SqlCommand command, SqlConnection connection, SqlTransaction? transaction, CommandType commandType, string commandText, SqlParameter[]? commandParameters, out bool mustCloseConnection )
         {
 			if( command == null ) throw new ArgumentNullException( "command" );
 			if( commandText == null || commandText.Length == 0 ) throw new ArgumentNullException( "commandText" );
@@ -232,7 +232,7 @@ namespace SQLScripter
         public static int ExecuteNonQuery(string ConnectionString, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteNonQuery(ConnectionString, commandType, commandText, (SqlParameter[])null);
+            return ExecuteNonQuery(ConnectionString, commandType, commandText, null);
         }
 
         /// <summary>
@@ -248,7 +248,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>An int representing the number of rows affected by the command</returns>
-        public static int ExecuteNonQuery(string ConnectionString, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+        public static int ExecuteNonQuery(string ConnectionString, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 
@@ -277,7 +277,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored prcedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>An int representing the number of rows affected by the command</returns>
-        public static int ExecuteNonQuery(string ConnectionString, string spName, params object[] parameterValues)
+        public static int ExecuteNonQuery(string ConnectionString, string spName, params object[]? parameterValues)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -315,7 +315,7 @@ namespace SQLScripter
         public static int ExecuteNonQuery(SqlConnection connection, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteNonQuery(connection, commandType, commandText, (SqlParameter[])null);
+            return ExecuteNonQuery(connection, commandType, commandText, null);
         }
 
         /// <summary>
@@ -331,7 +331,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>An int representing the number of rows affected by the command</returns>
-        public static int ExecuteNonQuery(SqlConnection connection, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+        public static int ExecuteNonQuery(SqlConnection connection, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
         {	
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 
@@ -339,7 +339,7 @@ namespace SQLScripter
             SqlCommand cmd = new SqlCommand();
             cmd.CommandTimeout = 0;
 			bool mustCloseConnection = false;
-            PrepareCommand(cmd, connection, (SqlTransaction)null, commandType, commandText, commandParameters, out mustCloseConnection );
+            PrepareCommand(cmd, connection, null, commandType, commandText, commandParameters, out mustCloseConnection );
     		
             // Finally, execute the command
             int retval = cmd.ExecuteNonQuery();
@@ -366,7 +366,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>An int representing the number of rows affected by the command</returns>
-        public static int ExecuteNonQuery(SqlConnection connection, string spName, params object[] parameterValues)
+        public static int ExecuteNonQuery(SqlConnection connection, string spName, params object[]? parameterValues)
         {
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -401,10 +401,10 @@ namespace SQLScripter
         /// <param name="commandType">The CommandType (stored procedure, text, etc.)</param>
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <returns>An int representing the number of rows affected by the command</returns>
-        public static int ExecuteNonQuery(SqlTransaction transaction, CommandType commandType, string commandText)
+        public static int ExecuteNonQuery(SqlTransaction? transaction, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteNonQuery(transaction, commandType, commandText, (SqlParameter[])null);
+            return ExecuteNonQuery(transaction, commandType, commandText, null);
         }
 
         /// <summary>
@@ -420,7 +420,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>An int representing the number of rows affected by the command</returns>
-		public static int ExecuteNonQuery(SqlTransaction transaction, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+		public static int ExecuteNonQuery(SqlTransaction? transaction, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
 		{
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -429,7 +429,7 @@ namespace SQLScripter
 			SqlCommand cmd = new SqlCommand();
             cmd.CommandTimeout = 0;
 			bool mustCloseConnection = false;
-			PrepareCommand(cmd, transaction.Connection, transaction, commandType, commandText, commandParameters, out mustCloseConnection );
+			PrepareCommand(cmd, transaction!.Connection!, transaction, commandType, commandText, commandParameters, out mustCloseConnection );
     			
 			// Finally, execute the command
 			int retval = cmd.ExecuteNonQuery();
@@ -454,7 +454,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>An int representing the number of rows affected by the command</returns>
-        public static int ExecuteNonQuery(SqlTransaction transaction, string spName, params object[] parameterValues)
+        public static int ExecuteNonQuery(SqlTransaction? transaction, string spName, params object[]? parameterValues)
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -464,7 +464,7 @@ namespace SQLScripter
             if ((parameterValues != null) && (parameterValues.Length > 0)) 
             {
                 // Pull the parameters for this stored procedure from the parameter cache (or discover them & populate the cache)
-                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction.Connection, spName);
+                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction!.Connection!, spName);
 
                 // Assign the provided values to these parameters based on parameter order
                 AssignParameterValues(commandParameters, parameterValues);
@@ -498,14 +498,14 @@ namespace SQLScripter
         public static DataSet ExecuteDataset(string ConnectionString, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteDataset(ConnectionString, commandType, commandText, (SqlParameter[])null);
+            return ExecuteDataset(ConnectionString, commandType, commandText, null);
 
         }
 
         public static DataSet ExecuteDataset(string ConnectionString, CommandType commandType, string commandText,bool returnNaturalValues)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteDataset(ConnectionString, commandType, commandText, returnNaturalValues,(SqlParameter[])null);
+            return ExecuteDataset(ConnectionString, commandType, commandText, returnNaturalValues, null);
 
         }
 
@@ -522,7 +522,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-        public static DataSet ExecuteDataset(string ConnectionString, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+        public static DataSet ExecuteDataset(string ConnectionString, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 
@@ -538,7 +538,7 @@ namespace SQLScripter
             }
         }
 
-        public static DataSet ExecuteDataset(string ConnectionString, CommandType commandType, string commandText,bool returnNaturalValues, params SqlParameter[] commandParameters)
+        public static DataSet ExecuteDataset(string ConnectionString, CommandType commandType, string commandText,bool returnNaturalValues, params SqlParameter[]? commandParameters)
         {
             if (ConnectionString == null || ConnectionString.Length == 0) throw new ArgumentNullException("ConnectionString");
 
@@ -569,7 +569,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-        public static DataSet ExecuteDataset(string ConnectionString, string spName, params object[] parameterValues)
+        public static DataSet ExecuteDataset(string ConnectionString, string spName, params object[]? parameterValues)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -607,7 +607,7 @@ namespace SQLScripter
         public static DataSet ExecuteDataset(SqlConnection connection, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteDataset(connection, commandType, commandText, (SqlParameter[])null);
+            return ExecuteDataset(connection, commandType, commandText, null);
         }
 		
         /// <summary>
@@ -623,7 +623,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-		public static DataSet ExecuteDataset(SqlConnection connection, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+		public static DataSet ExecuteDataset(SqlConnection connection, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
 		{
             try
             {
@@ -633,7 +633,7 @@ namespace SQLScripter
                 SqlCommand cmd = new SqlCommand();
                 cmd.CommandTimeout = 0;
                 bool mustCloseConnection = false;
-                PrepareCommand(cmd, connection, (SqlTransaction)null, commandType, commandText, commandParameters, out mustCloseConnection);
+                PrepareCommand(cmd, connection, null, commandType, commandText, commandParameters, out mustCloseConnection);
 
                 // Create the DataAdapter & DataSet
                 using (SqlDataAdapter da = new SqlDataAdapter(cmd))
@@ -653,14 +653,14 @@ namespace SQLScripter
                     return ds;
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 //Logger.Default.Error("Unknown error when running query: " + commandText);
-                throw e;
+                throw;
             }
 		}
 
-        public static DataSet ExecuteDataset(SqlConnection connection, CommandType commandType, string commandText, bool returnNaturalValues, params SqlParameter[] commandParameters)
+        public static DataSet ExecuteDataset(SqlConnection connection, CommandType commandType, string commandText, bool returnNaturalValues, params SqlParameter[]? commandParameters)
 		{
             try
             {
@@ -670,7 +670,7 @@ namespace SQLScripter
                 SqlCommand cmd = new SqlCommand();
                 cmd.CommandTimeout = 0;
                 bool mustCloseConnection = false;
-                PrepareCommand(cmd, connection, (SqlTransaction)null, commandType, commandText, commandParameters, out mustCloseConnection);
+                PrepareCommand(cmd, connection, null, commandType, commandText, commandParameters, out mustCloseConnection);
 
                 // Create the DataAdapter & DataSet
                 using (SqlDataAdapter da = new SqlDataAdapter(cmd))
@@ -691,10 +691,10 @@ namespace SQLScripter
                     return ds;
                 }
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 // Logger.Default.Error("Unknown error when running query: " + commandText);
-                throw e;
+                throw;
             }
 		}
 
@@ -713,7 +713,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-        public static DataSet ExecuteDataset(SqlConnection connection, string spName, params object[] parameterValues)
+        public static DataSet ExecuteDataset(SqlConnection connection, string spName, params object[]? parameterValues)
         {
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -748,10 +748,10 @@ namespace SQLScripter
         /// <param name="commandType">The CommandType (stored procedure, text, etc.)</param>
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-        public static DataSet ExecuteDataset(SqlTransaction transaction, CommandType commandType, string commandText)
+        public static DataSet ExecuteDataset(SqlTransaction? transaction, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteDataset(transaction, commandType, commandText, (SqlParameter[])null);
+            return ExecuteDataset(transaction, commandType, commandText, null);
         }
 
         /// <summary>
@@ -765,10 +765,10 @@ namespace SQLScripter
         /// <param name="commandType">The CommandType (stored procedure, text, etc.)</param>
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-        public static DataSet ExecuteDataset(SqlTransaction transaction, CommandType commandType, string commandText, int commandTimeout)
+        public static DataSet ExecuteDataset(SqlTransaction? transaction, CommandType commandType, string commandText, int commandTimeout)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteDataset(transaction, commandType, commandText, commandTimeout,(SqlParameter[])null);
+            return ExecuteDataset(transaction, commandType, commandText, commandTimeout, null);
         }
         /// <summary>
         /// Execute a SqlCommand (that returns a resultset) against the specified SqlTransaction
@@ -783,7 +783,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-		public static DataSet ExecuteDataset(SqlTransaction transaction, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+		public static DataSet ExecuteDataset(SqlTransaction? transaction, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
 		{
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -793,7 +793,7 @@ namespace SQLScripter
             cmd.CommandTimeout = 60;
             
 			bool mustCloseConnection = false;
-			PrepareCommand(cmd, transaction.Connection, transaction, commandType, commandText, commandParameters, out mustCloseConnection );
+			PrepareCommand(cmd, transaction!.Connection!, transaction, commandType, commandText, commandParameters, out mustCloseConnection );
     			
 			// Create the DataAdapter & DataSet
 			using( SqlDataAdapter da = new SqlDataAdapter(cmd) )
@@ -812,7 +812,7 @@ namespace SQLScripter
 			}	
 		}
 
-        public static DataSet ExecuteDataset(SqlTransaction transaction, CommandType commandType, string commandText, int commandTimeout,params SqlParameter[] commandParameters)
+        public static DataSet ExecuteDataset(SqlTransaction? transaction, CommandType commandType, string commandText, int commandTimeout,params SqlParameter[]? commandParameters)
         {
             if (transaction == null) throw new ArgumentNullException("transaction");
             if (transaction != null && transaction.Connection == null) throw new ArgumentException("The transaction was rollbacked or commited, please provide an open transaction.", "transaction");
@@ -822,7 +822,7 @@ namespace SQLScripter
             cmd.CommandTimeout = commandTimeout;
 
             bool mustCloseConnection = false;
-            PrepareCommand(cmd, transaction.Connection, transaction, commandType, commandText, commandParameters, out mustCloseConnection);
+            PrepareCommand(cmd, transaction!.Connection!, transaction, commandType, commandText, commandParameters, out mustCloseConnection);
 
             // Create the DataAdapter & DataSet
             using (SqlDataAdapter da = new SqlDataAdapter(cmd))
@@ -856,7 +856,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-        public static DataSet ExecuteDataset(SqlTransaction transaction, string spName, params object[] parameterValues)
+        public static DataSet ExecuteDataset(SqlTransaction? transaction, string spName, params object[]? parameterValues)
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -866,7 +866,7 @@ namespace SQLScripter
             if ((parameterValues != null) && (parameterValues.Length > 0)) 
             {
                 // Pull the parameters for this stored procedure from the parameter cache (or discover them & populate the cache)
-                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction.Connection, spName);
+                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction!.Connection!, spName);
 
                 // Assign the provided values to these parameters based on parameter order
                 AssignParameterValues(commandParameters, parameterValues);
@@ -897,7 +897,7 @@ namespace SQLScripter
             External
         }
 
-        private static SqlDataReader ExecuteReader(SqlConnection connection, SqlTransaction transaction, CommandType commandType, string commandText, SqlParameter[] commandParameters, SqlConnectionOwnership connectionOwnership)
+        private static SqlDataReader ExecuteReader(SqlConnection connection, SqlTransaction? transaction, CommandType commandType, string commandText, SqlParameter[]? commandParameters, SqlConnectionOwnership connectionOwnership)
         {
             return ExecuteReader(connection, transaction, commandType, commandText, commandParameters, connectionOwnership, 0);
         }
@@ -917,7 +917,7 @@ namespace SQLScripter
         /// <param name="commandParameters">An array of SqlParameters to be associated with the command or 'null' if no parameters are required</param>
         /// <param name="connectionOwnership">Indicates whether the connection parameter was provided by the caller, or created by SqlClient</param>
         /// <returns>SqlDataReader containing the results of the command</returns>
-        private static SqlDataReader ExecuteReader(SqlConnection connection, SqlTransaction transaction, CommandType commandType, string commandText, SqlParameter[] commandParameters, SqlConnectionOwnership connectionOwnership,int timeout)
+        private static SqlDataReader ExecuteReader(SqlConnection connection, SqlTransaction? transaction, CommandType commandType, string commandText, SqlParameter[]? commandParameters, SqlConnectionOwnership connectionOwnership,int timeout)
         {	
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 
@@ -945,8 +945,8 @@ namespace SQLScripter
 				// Detach the SqlParameters from the command object, so they can be used again.
 				// HACK: There is a problem here, the output parameter values are fletched 
 				// when the reader is closed, so if the parameters are detached from the command
-				// then the SqlReader can´t set its values. 
-				// When this happen, the parameters can´t be used again in other command.
+				// then the SqlReader canÂ´t set its values. 
+				// When this happen, the parameters canÂ´t be used again in other command.
 				bool canClear = true;
 				foreach(SqlParameter commandParameter in cmd.Parameters)
 				{
@@ -984,7 +984,7 @@ namespace SQLScripter
         public static SqlDataReader ExecuteReader(string ConnectionString, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteReader(ConnectionString, commandType, commandText, (SqlParameter[])null);
+            return ExecuteReader(ConnectionString, commandType, commandText, null);
         }
 
         /// <summary>
@@ -1000,10 +1000,10 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>A SqlDataReader containing the resultset generated by the command</returns>
-        public static SqlDataReader ExecuteReader(string ConnectionString, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+        public static SqlDataReader ExecuteReader(string ConnectionString, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
-            SqlConnection connection = null;
+            SqlConnection? connection = null;
             try
             {
 				connection = new SqlConnection(ConnectionString);
@@ -1036,7 +1036,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>A SqlDataReader containing the resultset generated by the command</returns>
-        public static SqlDataReader ExecuteReader(string ConnectionString, string spName, params object[] parameterValues)
+        public static SqlDataReader ExecuteReader(string ConnectionString, string spName, params object[]? parameterValues)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -1071,7 +1071,7 @@ namespace SQLScripter
         public static SqlDataReader ExecuteReader(SqlConnection connection, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteReader(connection, commandType, commandText, (SqlParameter[])null);
+            return ExecuteReader(connection, commandType, commandText, null);
         }
 
         /// <summary>
@@ -1087,10 +1087,10 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>A SqlDataReader containing the resultset generated by the command</returns>
-        public static SqlDataReader ExecuteReader(SqlConnection connection, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+        public static SqlDataReader ExecuteReader(SqlConnection connection, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
         {
             // Pass through the call to the private overload using a null transaction value and an externally owned connection
-            return ExecuteReader(connection, (SqlTransaction)null, commandType, commandText, commandParameters, SqlConnectionOwnership.External);
+            return ExecuteReader(connection, null, commandType, commandText, commandParameters, SqlConnectionOwnership.External);
         }
 
         /// <summary>
@@ -1108,7 +1108,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>A SqlDataReader containing the resultset generated by the command</returns>
-        public static SqlDataReader ExecuteReader(SqlConnection connection, string spName, params object[] parameterValues)
+        public static SqlDataReader ExecuteReader(SqlConnection connection, string spName, params object[]? parameterValues)
         {
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -1140,16 +1140,16 @@ namespace SQLScripter
         /// <param name="commandType">The CommandType (stored procedure, text, etc.)</param>
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <returns>A SqlDataReader containing the resultset generated by the command</returns>
-        public static SqlDataReader ExecuteReader(SqlTransaction transaction, CommandType commandType, string commandText)
+        public static SqlDataReader ExecuteReader(SqlTransaction? transaction, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteReader(transaction, commandType, commandText, (SqlParameter[])null);
+            return ExecuteReader(transaction, commandType, commandText, null);
         }
 
-        public static SqlDataReader ExecuteReader(SqlTransaction transaction, CommandType commandType, string commandText,int timeout)
+        public static SqlDataReader ExecuteReader(SqlTransaction? transaction, CommandType commandType, string commandText,int timeout)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteReader(transaction, commandType, commandText,timeout, (SqlParameter[])null);
+            return ExecuteReader(transaction, commandType, commandText,timeout, null);
         }
 
         /// <summary>
@@ -1165,22 +1165,22 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>A SqlDataReader containing the resultset generated by the command</returns>
-        public static SqlDataReader ExecuteReader(SqlTransaction transaction, CommandType commandType, string commandText, int timeout, params SqlParameter[] commandParameters)
+        public static SqlDataReader ExecuteReader(SqlTransaction? transaction, CommandType commandType, string commandText, int timeout, params SqlParameter[]? commandParameters)
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
 
 			// Pass through to private overload, indicating that the connection is owned by the caller
-            return ExecuteReader(transaction.Connection, transaction, commandType, commandText, commandParameters, SqlConnectionOwnership.External,timeout);
+            return ExecuteReader(transaction!.Connection!, transaction, commandType, commandText, commandParameters, SqlConnectionOwnership.External,timeout);
         }
 
-        public static SqlDataReader ExecuteReader(SqlTransaction transaction, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+        public static SqlDataReader ExecuteReader(SqlTransaction? transaction, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
         {
             if (transaction == null) throw new ArgumentNullException("transaction");
             if (transaction != null && transaction.Connection == null) throw new ArgumentException("The transaction was rollbacked or commited, please provide an open transaction.", "transaction");
 
             // Pass through to private overload, indicating that the connection is owned by the caller
-            return ExecuteReader(transaction.Connection, transaction, commandType, commandText, commandParameters, SqlConnectionOwnership.External);
+            return ExecuteReader(transaction!.Connection!, transaction, commandType, commandText, commandParameters, SqlConnectionOwnership.External);
         }
         /// <summary>
         /// Execute a stored procedure via a SqlCommand (that returns a resultset) against the specified
@@ -1197,7 +1197,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>A SqlDataReader containing the resultset generated by the command</returns>
-        public static SqlDataReader ExecuteReader(SqlTransaction transaction, string spName, params object[] parameterValues)
+        public static SqlDataReader ExecuteReader(SqlTransaction? transaction, string spName, params object[]? parameterValues)
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -1206,7 +1206,7 @@ namespace SQLScripter
             // If we receive parameter values, we need to figure out where they go
             if ((parameterValues != null) && (parameterValues.Length > 0)) 
             {
-                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction.Connection, spName);
+                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction!.Connection!, spName);
 
                 AssignParameterValues(commandParameters, parameterValues);
 
@@ -1235,10 +1235,10 @@ namespace SQLScripter
         /// <param name="commandType">The CommandType (stored procedure, text, etc.)</param>
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-        public static object ExecuteScalar(string ConnectionString, CommandType commandType, string commandText)
+        public static object? ExecuteScalar(string ConnectionString, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteScalar(ConnectionString, commandType, commandText, (SqlParameter[])null);
+            return ExecuteScalar(ConnectionString, commandType, commandText, null);
         }
 
         /// <summary>
@@ -1254,7 +1254,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-        public static object ExecuteScalar(string ConnectionString, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+        public static object? ExecuteScalar(string ConnectionString, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
             // Create & open a SqlConnection, and dispose of it after we are done
@@ -1282,7 +1282,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-        public static object ExecuteScalar(string ConnectionString, string spName, params object[] parameterValues)
+        public static object? ExecuteScalar(string ConnectionString, string spName, params object[]? parameterValues)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -1317,10 +1317,10 @@ namespace SQLScripter
         /// <param name="commandType">The CommandType (stored procedure, text, etc.)</param>
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-        public static object ExecuteScalar(SqlConnection connection, CommandType commandType, string commandText)
+        public static object? ExecuteScalar(SqlConnection connection, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteScalar(connection, commandType, commandText, (SqlParameter[])null);
+            return ExecuteScalar(connection, commandType, commandText, null);
         }
 
         /// <summary>
@@ -1336,7 +1336,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-		public static object ExecuteScalar(SqlConnection connection, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+		public static object? ExecuteScalar(SqlConnection connection, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
 		{
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 
@@ -1345,7 +1345,7 @@ namespace SQLScripter
             cmd.CommandTimeout = 0;
 
 			bool mustCloseConnection = false;
-			PrepareCommand(cmd, connection, (SqlTransaction)null, commandType, commandText, commandParameters, out mustCloseConnection );
+			PrepareCommand(cmd, connection, null, commandType, commandText, commandParameters, out mustCloseConnection );
     			
 			// Execute the command & return the results
 			object retval = cmd.ExecuteScalar();
@@ -1374,7 +1374,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-        public static object ExecuteScalar(SqlConnection connection, string spName, params object[] parameterValues)
+        public static object? ExecuteScalar(SqlConnection connection, string spName, params object[]? parameterValues)
         {
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -1409,10 +1409,10 @@ namespace SQLScripter
         /// <param name="commandType">The CommandType (stored procedure, text, etc.)</param>
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-        public static object ExecuteScalar(SqlTransaction transaction, CommandType commandType, string commandText)
+        public static object? ExecuteScalar(SqlTransaction? transaction, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteScalar(transaction, commandType, commandText, (SqlParameter[])null);
+            return ExecuteScalar(transaction, commandType, commandText, null);
         }
 
         /// <summary>
@@ -1428,7 +1428,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-		public static object ExecuteScalar(SqlTransaction transaction, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+		public static object? ExecuteScalar(SqlTransaction? transaction, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
 		{
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -1437,7 +1437,7 @@ namespace SQLScripter
 			SqlCommand cmd = new SqlCommand();
             cmd.CommandTimeout = 0;
 			bool mustCloseConnection = false;
-			PrepareCommand(cmd, transaction.Connection, transaction, commandType, commandText, commandParameters, out mustCloseConnection );
+			PrepareCommand(cmd, transaction!.Connection!, transaction, commandType, commandText, commandParameters, out mustCloseConnection );
     			
 			// Execute the command & return the results
 			object retval = cmd.ExecuteScalar();
@@ -1462,7 +1462,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-        public static object ExecuteScalar(SqlTransaction transaction, string spName, params object[] parameterValues)
+        public static object? ExecuteScalar(SqlTransaction? transaction, string spName, params object[]? parameterValues)
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -1472,7 +1472,7 @@ namespace SQLScripter
             if ((parameterValues != null) && (parameterValues.Length > 0)) 
             {
                 // PPull the parameters for this stored procedure from the parameter cache (or discover them & populate the cache)
-                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction.Connection, spName);
+                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction!.Connection!, spName);
 
                 // Assign the provided values to these parameters based on parameter order
                 AssignParameterValues(commandParameters, parameterValues);
@@ -1504,7 +1504,7 @@ namespace SQLScripter
         public static XmlReader ExecuteXmlReader(SqlConnection connection, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteXmlReader(connection, commandType, commandText, (SqlParameter[])null);
+            return ExecuteXmlReader(connection, commandType, commandText, null);
         }
 
         /// <summary>
@@ -1520,7 +1520,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command using "FOR XML AUTO"</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>An XmlReader containing the resultset generated by the command</returns>
-        public static XmlReader ExecuteXmlReader(SqlConnection connection, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+        public static XmlReader ExecuteXmlReader(SqlConnection connection, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
         {
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 
@@ -1530,7 +1530,7 @@ namespace SQLScripter
             cmd.CommandTimeout = 0;
 			try
 			{
-				PrepareCommand(cmd, connection, (SqlTransaction)null, commandType, commandText, commandParameters, out mustCloseConnection );
+				PrepareCommand(cmd, connection, null, commandType, commandText, commandParameters, out mustCloseConnection );
 			
 				// Create the DataAdapter & DataSet
 				XmlReader retval = cmd.ExecuteXmlReader();
@@ -1563,7 +1563,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure using "FOR XML AUTO"</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>An XmlReader containing the resultset generated by the command</returns>
-        public static XmlReader ExecuteXmlReader(SqlConnection connection, string spName, params object[] parameterValues)
+        public static XmlReader ExecuteXmlReader(SqlConnection connection, string spName, params object[]? parameterValues)
         {
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -1598,10 +1598,10 @@ namespace SQLScripter
         /// <param name="commandType">The CommandType (stored procedure, text, etc.)</param>
         /// <param name="commandText">The stored procedure name or T-SQL command using "FOR XML AUTO"</param>
         /// <returns>An XmlReader containing the resultset generated by the command</returns>
-        public static XmlReader ExecuteXmlReader(SqlTransaction transaction, CommandType commandType, string commandText)
+        public static XmlReader ExecuteXmlReader(SqlTransaction? transaction, CommandType commandType, string commandText)
         {
             // Pass through the call providing null for the set of SqlParameters
-            return ExecuteXmlReader(transaction, commandType, commandText, (SqlParameter[])null);
+            return ExecuteXmlReader(transaction, commandType, commandText, null);
         }
 
         /// <summary>
@@ -1617,7 +1617,7 @@ namespace SQLScripter
         /// <param name="commandText">The stored procedure name or T-SQL command using "FOR XML AUTO"</param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         /// <returns>An XmlReader containing the resultset generated by the command</returns>
-		public static XmlReader ExecuteXmlReader(SqlTransaction transaction, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+		public static XmlReader ExecuteXmlReader(SqlTransaction? transaction, CommandType commandType, string commandText, params SqlParameter[]? commandParameters)
 		{
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -1626,7 +1626,7 @@ namespace SQLScripter
 			SqlCommand cmd = new SqlCommand();
             cmd.CommandTimeout = 0;
 			bool mustCloseConnection = false;
-			PrepareCommand(cmd, transaction.Connection, transaction, commandType, commandText, commandParameters, out mustCloseConnection );
+			PrepareCommand(cmd, transaction!.Connection!, transaction, commandType, commandText, commandParameters, out mustCloseConnection );
 			
 			// Create the DataAdapter & DataSet
 			XmlReader retval = cmd.ExecuteXmlReader();
@@ -1651,7 +1651,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-        public static XmlReader ExecuteXmlReader(SqlTransaction transaction, string spName, params object[] parameterValues)
+        public static XmlReader ExecuteXmlReader(SqlTransaction? transaction, string spName, params object[]? parameterValues)
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -1661,7 +1661,7 @@ namespace SQLScripter
             if ((parameterValues != null) && (parameterValues.Length > 0)) 
             {
                 // Pull the parameters for this stored procedure from the parameter cache (or discover them & populate the cache)
-                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction.Connection, spName);
+                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction!.Connection!, spName);
 
                 // Assign the provided values to these parameters based on parameter order
                 AssignParameterValues(commandParameters, parameterValues);
@@ -1726,7 +1726,7 @@ namespace SQLScripter
         /// </param>
         public static void FillDataset(string ConnectionString, CommandType commandType,
             string commandText, DataSet dataSet, string[] tableNames,
-            params SqlParameter[] commandParameters)
+            params SqlParameter[]? commandParameters)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 			if( dataSet == null ) throw new ArgumentNullException( "dataSet" );
@@ -1760,7 +1760,7 @@ namespace SQLScripter
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         public static void FillDataset(string ConnectionString, string spName,
             DataSet dataSet, string[] tableNames,
-            params object[] parameterValues)
+            params object[]? parameterValues)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 			if( dataSet == null ) throw new ArgumentNullException( "dataSet" );
@@ -1812,7 +1812,7 @@ namespace SQLScripter
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
         public static void FillDataset(SqlConnection connection, CommandType commandType, 
             string commandText, DataSet dataSet, string[] tableNames,
-            params SqlParameter[] commandParameters)
+            params SqlParameter[]? commandParameters)
         {
             FillDataset(connection, null, commandType, commandText, dataSet, tableNames, commandParameters);
         }
@@ -1837,7 +1837,7 @@ namespace SQLScripter
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
         public static void FillDataset(SqlConnection connection, string spName, 
             DataSet dataSet, string[] tableNames,
-            params object[] parameterValues)
+            params object[]? parameterValues)
         {
             if ( connection == null ) throw new ArgumentNullException( "connection" );
 			if (dataSet == null ) throw new ArgumentNullException( "dataSet" );
@@ -1876,7 +1876,7 @@ namespace SQLScripter
         /// <param name="tableNames">This array will be used to create table mappings allowing the DataTables to be referenced
         /// by a user defined name (probably the actual table name)
         /// </param>
-        public static void FillDataset(SqlTransaction transaction, CommandType commandType, 
+        public static void FillDataset(SqlTransaction? transaction, CommandType commandType, 
             string commandText,
             DataSet dataSet, string[] tableNames)
         {
@@ -1899,11 +1899,11 @@ namespace SQLScripter
         /// by a user defined name (probably the actual table name)
         /// </param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
-        public static void FillDataset(SqlTransaction transaction, CommandType commandType, 
+        public static void FillDataset(SqlTransaction? transaction, CommandType commandType, 
             string commandText, DataSet dataSet, string[] tableNames,
-            params SqlParameter[] commandParameters)
+            params SqlParameter[]? commandParameters)
         {
-            FillDataset(transaction.Connection, transaction, commandType, commandText, dataSet, tableNames, commandParameters);
+            FillDataset(transaction!.Connection!, transaction, commandType, commandText, dataSet, tableNames, commandParameters);
         }
 
         /// <summary>
@@ -1924,9 +1924,10 @@ namespace SQLScripter
         /// by a user defined name (probably the actual table name)
         /// </param>
         /// <param name="parameterValues">An array of objects to be assigned as the input values of the stored procedure</param>
-        public static void FillDataset(SqlTransaction transaction, string spName,
+        public static void FillDataset(SqlTransaction? transaction, string spName,
             DataSet dataSet, string[] tableNames,
-            params object[] parameterValues) 
+            params object[]? parameterValues) 
+ 
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -1937,7 +1938,7 @@ namespace SQLScripter
             if ((parameterValues != null) && (parameterValues.Length > 0)) 
             {
                 // Pull the parameters for this stored procedure from the parameter cache (or discover them & populate the cache)
-                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction.Connection, spName);
+                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction!.Connection!, spName);
 
                 // Assign the provided values to these parameters based on parameter order
                 AssignParameterValues(commandParameters, parameterValues);
@@ -1969,9 +1970,9 @@ namespace SQLScripter
         /// by a user defined name (probably the actual table name)
         /// </param>
         /// <param name="commandParameters">An array of SqlParamters used to execute the command</param>
-		private static void FillDataset(SqlConnection connection, SqlTransaction transaction, CommandType commandType, 
+		private static void FillDataset(SqlConnection connection, SqlTransaction? transaction, CommandType commandType, 
 			string commandText, DataSet dataSet, string[] tableNames,
-			params SqlParameter[] commandParameters)
+			params SqlParameter[]? commandParameters)
 		{
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 			if( dataSet == null ) throw new ArgumentNullException( "dataSet" );
@@ -2099,7 +2100,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>An int representing the number of rows affected by the command</returns>
-        public static int ExecuteNonQueryTypedParams(string ConnectionString, string spName, DataRow dataRow)
+        public static int ExecuteNonQueryTypedParams(string ConnectionString, string spName, DataRow? dataRow)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -2131,7 +2132,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>An int representing the number of rows affected by the command</returns>
-        public static int ExecuteNonQueryTypedParams(SqlConnection connection, string spName, DataRow dataRow)
+        public static int ExecuteNonQueryTypedParams(SqlConnection connection, string spName, DataRow? dataRow)
         {
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -2163,7 +2164,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>An int representing the number of rows affected by the command</returns>
-        public static int ExecuteNonQueryTypedParams(SqlTransaction transaction, string spName, DataRow dataRow)
+        public static int ExecuteNonQueryTypedParams(SqlTransaction? transaction, string spName, DataRow? dataRow)
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -2173,7 +2174,7 @@ namespace SQLScripter
             if (dataRow != null && dataRow.ItemArray.Length > 0)
             {
                 // Pull the parameters for this stored procedure from the parameter cache (or discover them & populate the cache)
-                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction.Connection, spName);
+                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction!.Connection!, spName);
                 
                 // Set the parameters values
                 AssignParameterValues(commandParameters, dataRow);
@@ -2198,7 +2199,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-        public static DataSet ExecuteDatasetTypedParams(string ConnectionString, string spName, DataRow dataRow)
+        public static DataSet ExecuteDatasetTypedParams(string ConnectionString, string spName, DataRow? dataRow)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -2230,7 +2231,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-        public static DataSet ExecuteDatasetTypedParams(SqlConnection connection, string spName, DataRow dataRow)
+        public static DataSet ExecuteDatasetTypedParams(SqlConnection connection, string spName, DataRow? dataRow)
         {
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -2262,7 +2263,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>A dataset containing the resultset generated by the command</returns>
-        public static DataSet ExecuteDatasetTypedParams(SqlTransaction transaction, string spName, DataRow dataRow)
+        public static DataSet ExecuteDatasetTypedParams(SqlTransaction? transaction, string spName, DataRow? dataRow)
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -2272,7 +2273,7 @@ namespace SQLScripter
             if( dataRow != null && dataRow.ItemArray.Length > 0)
             {
                 // Pull the parameters for this stored procedure from the parameter cache (or discover them & populate the cache)
-                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction.Connection, spName);
+                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction!.Connection!, spName);
                 
                 // Set the parameters values
                 AssignParameterValues(commandParameters, dataRow);
@@ -2298,7 +2299,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>A SqlDataReader containing the resultset generated by the command</returns>
-        public static SqlDataReader ExecuteReaderTypedParams(string ConnectionString, string spName, DataRow dataRow)
+        public static SqlDataReader ExecuteReaderTypedParams(string ConnectionString, string spName, DataRow? dataRow)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -2331,7 +2332,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>A SqlDataReader containing the resultset generated by the command</returns>
-        public static SqlDataReader ExecuteReaderTypedParams(SqlConnection connection, string spName, DataRow dataRow)
+        public static SqlDataReader ExecuteReaderTypedParams(SqlConnection connection, string spName, DataRow? dataRow)
         {
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -2363,7 +2364,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>A SqlDataReader containing the resultset generated by the command</returns>
-        public static SqlDataReader ExecuteReaderTypedParams(SqlTransaction transaction, string spName, DataRow dataRow)
+        public static SqlDataReader ExecuteReaderTypedParams(SqlTransaction? transaction, string spName, DataRow? dataRow)
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -2373,7 +2374,7 @@ namespace SQLScripter
             if( dataRow != null && dataRow.ItemArray.Length > 0 )
             {
                 // Pull the parameters for this stored procedure from the parameter cache (or discover them & populate the cache)
-                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction.Connection, spName);
+                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction!.Connection!, spName);
                 
                 // Set the parameters values
                 AssignParameterValues(commandParameters, dataRow);
@@ -2398,7 +2399,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-        public static object ExecuteScalarTypedParams(string ConnectionString, string spName, DataRow dataRow)
+        public static object? ExecuteScalarTypedParams(string ConnectionString, string spName, DataRow? dataRow)
         {
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -2430,7 +2431,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-        public static object ExecuteScalarTypedParams(SqlConnection connection, string spName, DataRow dataRow)
+        public static object? ExecuteScalarTypedParams(SqlConnection connection, string spName, DataRow? dataRow)
         {
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -2462,7 +2463,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>An object containing the value in the 1x1 resultset generated by the command</returns>
-        public static object ExecuteScalarTypedParams(SqlTransaction transaction, string spName, DataRow dataRow)
+        public static object? ExecuteScalarTypedParams(SqlTransaction? transaction, string spName, DataRow? dataRow)
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -2472,7 +2473,7 @@ namespace SQLScripter
             if( dataRow != null && dataRow.ItemArray.Length > 0)
             {
                 // Pull the parameters for this stored procedure from the parameter cache (or discover them & populate the cache)
-                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction.Connection, spName);
+                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction!.Connection!, spName);
                 
                 // Set the parameters values
                 AssignParameterValues(commandParameters, dataRow);
@@ -2497,7 +2498,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>An XmlReader containing the resultset generated by the command</returns>
-        public static XmlReader ExecuteXmlReaderTypedParams(SqlConnection connection, string spName, DataRow dataRow)
+        public static XmlReader ExecuteXmlReaderTypedParams(SqlConnection connection, string spName, DataRow? dataRow)
         {
 			if( connection == null ) throw new ArgumentNullException( "connection" );
 			if( spName == null || spName.Length == 0 ) throw new ArgumentNullException( "spName" );
@@ -2529,7 +2530,7 @@ namespace SQLScripter
         /// <param name="spName">The name of the stored procedure</param>
         /// <param name="dataRow">The dataRow used to hold the stored procedure's parameter values.</param>
         /// <returns>An XmlReader containing the resultset generated by the command</returns>
-        public static XmlReader ExecuteXmlReaderTypedParams(SqlTransaction transaction, string spName, DataRow dataRow)
+        public static XmlReader ExecuteXmlReaderTypedParams(SqlTransaction? transaction, string spName, DataRow? dataRow)
         {
 			if( transaction == null ) throw new ArgumentNullException( "transaction" );
 			if( transaction != null && transaction.Connection == null ) throw new ArgumentException( "The transaction was rollbacked or commited, please provide an open transaction.", "transaction" );
@@ -2539,7 +2540,7 @@ namespace SQLScripter
             if( dataRow != null && dataRow.ItemArray.Length > 0)
             {
                 // Pull the parameters for this stored procedure from the parameter cache (or discover them & populate the cache)
-                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction.Connection, spName);
+                SqlParameter[] commandParameters = SqlClientParameterCache.GetSpParameterSet(transaction!.Connection!, spName);
                 
                 // Set the parameters values
                 AssignParameterValues(commandParameters, dataRow);
@@ -2601,7 +2602,7 @@ namespace SQLScripter
                 if (conn.State != ConnectionState.Open)
                     conn.Open();
 
-                if (!string.IsNullOrEmpty(dbName) && !dbName.Equals(conn.Database, StringComparison.CurrentCultureIgnoreCase))
+                if (!string.IsNullOrEmpty(dbName) && dbName != null && !dbName.Equals(conn.Database, StringComparison.CurrentCultureIgnoreCase))
                     conn.ChangeDatabase(dbName);
             }
             catch
@@ -2710,14 +2711,14 @@ namespace SQLScripter
 		/// <param name="ConnectionString">A valid connection string for a SqlConnection</param>
 		/// <param name="commandText">The stored procedure name or T-SQL command</param>
 		/// <returns>An array of SqlParamters</returns>
-		public static SqlParameter[] GetCachedParameterSet(string ConnectionString, string commandText)
+		public static SqlParameter[]? GetCachedParameterSet(string ConnectionString, string commandText)
 		{
 			if( ConnectionString == null || ConnectionString.Length == 0 ) throw new ArgumentNullException( "ConnectionString" );
 			if( commandText == null || commandText.Length == 0 ) throw new ArgumentNullException( "commandText" );
 
 			string hashKey = ConnectionString + ":" + commandText;
 
-			SqlParameter[] cachedParameters = paramCache[hashKey] as SqlParameter[];
+			SqlParameter[]? cachedParameters = paramCache[hashKey] as SqlParameter[];
 			if (cachedParameters == null)
 			{			
 				return null;
@@ -2814,7 +2815,7 @@ namespace SQLScripter
 
             string hashKey = connection.ConnectionString + ":" + spName + (includeReturnValueParameter ? ":include ReturnValue Parameter":"");
 
-            SqlParameter[] cachedParameters;
+            SqlParameter[]? cachedParameters;
         	
             cachedParameters = paramCache[hashKey] as SqlParameter[];
             if (cachedParameters == null)

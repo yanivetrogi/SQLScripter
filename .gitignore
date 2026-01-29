@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# SQLScripter specific
+Configuration/credentials.bin
+SQLScripter.log
+sqlscripter_out/
