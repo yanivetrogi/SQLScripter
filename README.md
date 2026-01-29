@@ -79,12 +79,24 @@ Configuration is now incredibly streamlined.
 ### Application Settings
 
 | Setting | Default | Description |
-|---------|---------|-------------|
+| :--- | :--- | :--- |
 | `OutputFolder` | `c:\sqlscripter_out` | Output directory for scripts |
+| `ScriptOneFilePerObjectType` | `false` | One file per object type vs. per object |
 | `ZipFolder` | `true` | Create ZIP archive of output |
 | `ZipPassword` | - | Password for ZIP archive (optional) |
-| `MaxConcurrentThreads` | `10` | Max concurrent server connections (1-100) |
+| `DeleteOutputFolderAfterZip` | `false` | Delete folder after creating ZIP |
+| `MaxConcurrentThreads` | `25` | Max concurrent server connections (1-100) |
 | `DaysToKeepFilesInOutputFolder` | `180` | Retention period for old files |
+
+### Server Settings
+
+| Setting | Default | Description |
+| :--- | :--- | :--- |
+| `SQLServer` | - | Server name or instance (e.g., `SERVER01\INST`) |
+| `Databases` | `all` | Databases to script (comma-separated or `all`) |
+| `ObjectTypes` | `all` | Object types to script (comma-separated or `all`) |
+| `WriteToConsole` | `false` | Print progress for this server to console |
+| `ConsoleForeGroundColour` | `White` | Color for this server's console output |
 
 ---
 
