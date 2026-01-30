@@ -10,7 +10,7 @@ A powerful, secure, and zero-config SQL Server database scripting tool for .NET 
 
 ## 📖 Overview
 
-SQLScripter is a professional-grade command-line tool that generates SQL scripts for SQL Server databases. It supports scripting tables, views, stored procedures, functions, indexes, and many other database objects across multiple servers concurrently.
+SQLScripter is a professional-grade command-line tool that generates SQL scripts for SQL Server databases. It supports scripting tables, views, stored procedures, functions, indexes, logins, jobs and many other database objects across multiple servers concurrently.
 
 ### ✨ Key Features
 
