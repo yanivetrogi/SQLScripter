@@ -1,4 +1,4 @@
-# SQLScripter v4.2
+# SQLScripter v4.2.0.0
 
 A powerful, secure, and zero-config SQL Server database scripting tool for .NET 8
 

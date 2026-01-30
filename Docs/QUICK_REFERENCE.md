@@ -1,4 +1,4 @@
-# Quick Reference: SQLScripter Commands & Operations
+# Quick Reference: SQLScripter v4.2.0.0 Commands & Operations
 
 ## 🛠️ Build Commands
 
