@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.SqlServer.Management.Smo;
 using Microsoft.SqlServer.Management.Common;
@@ -48,6 +49,27 @@ namespace SQLScripter.Services
                 
                 // Get unique servers only
                 var uniqueServers = GetUniqueServers(servers);
+
+                // Set max server and database name lengths for logging alignment
+                foreach (var server in uniqueServers)
+                {
+                    if (server.SQLServer.Length > Program.SqlServerMaxNameLength)
+                    {
+                        Program.SqlServerMaxNameLength = server.SQLServer.Length;
+                    }
+
+                    if (!string.IsNullOrEmpty(server.Databases) && server.Databases.ToLower() != "all")
+                    {
+                        var dbNames = server.Databases.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var dbName in dbNames)
+                        {
+                            if (dbName.Trim().Length > Program.SqlDatabaseMaxNameLength)
+                            {
+                                Program.SqlDatabaseMaxNameLength = dbName.Trim().Length;
+                            }
+                        }
+                    }
+                }
                 
                 // Get thread count from configuration with validation
                 int maxThreads = appSettings.MaxConcurrentThreads;
@@ -88,6 +110,13 @@ namespace SQLScripter.Services
                 });
 
                 _logger.Info("", "", "All servers processed successfully");
+
+                // Cleanup old objects in the output folder
+                if (appSettings.DaysToKeepFilesInOutputFolder > 0)
+                {
+                    _logger.Info("", "", $"Cleaning up files older than {appSettings.DaysToKeepFilesInOutputFolder} days in: {appSettings.OutputFolder}...");
+                    _fileManagementService.CleanupOldFiles(appSettings.OutputFolder, appSettings.DaysToKeepFilesInOutputFolder);
+                }
             }
             catch (Exception ex)
             {
@@ -226,13 +255,22 @@ namespace SQLScripter.Services
                 // Get databases to script
                 string[] databasesToScript = GetDatabasesToScript(serverSettings.Databases, server);
 
+                // Update max database name length dynamically for stable alignment
+                foreach (string dbName in databasesToScript)
+                {
+                    if (dbName.Length > Program.SqlDatabaseMaxNameLength)
+                    {
+                        Program.SqlDatabaseMaxNameLength = dbName.Length;
+                    }
+                }
+
+                // Script server-level objects once per server in their own master/msdb folders
+                string[] serverObjectTypes = GetObjectTypesToScript(serverSettings.ObjectTypes);
+                _scriptingService.ScriptServer(serverName, server, serverObjectTypes, serverPath, connectionString);
+
                 // Process each database
                 foreach (string databaseName in databasesToScript)
                 {
-                    if (Program.SqlDatabaseMaxNameLength < databaseName.Length)
-                    {
-                        Program.SqlDatabaseMaxNameLength = databaseName.Length;
-                    }
                     ProcessDatabase(server, databaseName, serverSettings, appSettings, serverPath, connectionString);
                 }
 
@@ -288,7 +326,7 @@ namespace SQLScripter.Services
                     database,
                     objectTypes,
                     databasePath,
-                    scriptServerLevelObjects: true,
+                    scriptServerLevelObjects: false,
                     connectionString);
 
                 _logger.Info(serverSettings.SQLServer, databaseName, "Database processing completed");
@@ -316,8 +354,10 @@ namespace SQLScripter.Services
             }
             else
             {
-                // Parse comma-separated list
-                return databasesConfig.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                // Parse comma or semicolon-separated list
+                return databasesConfig.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                                      .Select(db => db.Trim())
+                                      .ToArray();
             }
         }
 
@@ -329,7 +369,10 @@ namespace SQLScripter.Services
             }
             else
             {
-                return objectTypesConfig.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                // Parse comma or semicolon-separated list
+                return objectTypesConfig.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                                      .Select(ot => ot.Trim().ToUpper())
+                                      .ToArray();
             }
         }
 

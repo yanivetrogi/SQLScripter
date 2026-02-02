@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Microsoft.SqlServer.Management.Smo;
 using Microsoft.SqlServer.Management.Smo.Agent;
 using Microsoft.SqlServer.Management.Common;
@@ -14,13 +16,15 @@ namespace SQLScripter.Services
     {
         void ScriptDatabase(string serverName, string databaseName, Server server, Database database, 
             string[] objectTypes, string outputPath, bool scriptServerLevelObjects, string connectionString);
+
+        void ScriptServer(string serverName, Server server, string[] objectTypes, string outputPath, string connectionString);
     }
 
     public class ScriptingService : IScriptingService
     {
         private readonly ILoggerService _logger;
         private readonly bool _scriptOneFilePerObjectType;
-
+        
         public ScriptingService(ILoggerService logger, bool scriptOneFilePerObjectType)
         {
             _logger = logger;
@@ -32,6 +36,9 @@ namespace SQLScripter.Services
         {
             try
             {
+                // Ensure the database collections are refreshed and loaded
+                database.Refresh();
+                
                 foreach (string type in objectTypes)
                 {
                     string objectType = type.Trim().ToUpper();
@@ -48,14 +55,46 @@ namespace SQLScripter.Services
             }
         }
 
+        public void ScriptServer(string serverName, Server server, string[] objectTypes, string outputPath, string connectionString)
+        {
+            try
+            {
+                _logger.Info(serverName, "master", "Scripting server-level objects...");
+
+                string masterPath = Path.Combine(outputPath, "master");
+                string msdbPath = Path.Combine(outputPath, "msdb");
+
+                bool allTypes = objectTypes.Any(ot => ot.Equals("ALL", StringComparison.OrdinalIgnoreCase));
+
+                // Jobs and ProxyAccounts go under msdb
+                if (allTypes || objectTypes.Any(ot => ot.Equals("JOBS", StringComparison.OrdinalIgnoreCase)))
+                    ScriptJobs(serverName, "msdb", server, msdbPath);
+
+                if (allTypes || objectTypes.Any(ot => ot.Equals("PROXYACCOUNTS", StringComparison.OrdinalIgnoreCase) || ot.Equals("PRA", StringComparison.OrdinalIgnoreCase)))
+                    ScriptProxyAccounts(serverName, "msdb", server, msdbPath);
+
+                // LinkedServers, Credentials, ServerDdlTriggers, and Logins go under master
+                if (allTypes || objectTypes.Any(ot => ot.Equals("LINKEDSERVERS", StringComparison.OrdinalIgnoreCase) || ot.Equals("LS", StringComparison.OrdinalIgnoreCase)))
+                    ScriptLinkedServers(serverName, "master", server, masterPath);
+
+                if (allTypes || objectTypes.Any(ot => ot.Equals("CREDENTIALS", StringComparison.OrdinalIgnoreCase) || ot.Equals("CRE", StringComparison.OrdinalIgnoreCase)))
+                    ScriptCredentials(serverName, "master", server, masterPath);
+
+                if (allTypes || objectTypes.Any(ot => ot.Equals("SERVERDDLTRIGGERS", StringComparison.OrdinalIgnoreCase) || ot.Equals("SDT", StringComparison.OrdinalIgnoreCase)))
+                    ScriptServerDdlTriggers(serverName, "master", server, masterPath);
+
+                if (allTypes || objectTypes.Any(ot => ot.Equals("LOGINS", StringComparison.OrdinalIgnoreCase) || ot.Equals("L", StringComparison.OrdinalIgnoreCase)))
+                    ScriptLogins(serverName, "master", server, masterPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.WriteToLog(serverName, "", "Error scripting server-level objects", ex);
+            }
+        }
+
         private void ProcessObjectType(string serverName, string databaseName, Server server, Database database,
             string objectType, string outputPath, bool scriptServerLevelObjects, string connectionString)
         {
-            if (objectType != "ALL")
-            {
-                _logger.Info(serverName, databaseName, $"Scripting {objectType}...");
-            }
-
             switch (objectType)
             {
                 case "ALL":
@@ -94,6 +133,7 @@ namespace SQLScripter.Services
                     ScriptIndexes(serverName, databaseName, database, outputPath);
                     break;
                 case "F":
+                case "FK":
                 case "FOREIGNKEYS":
                     ScriptForeignKeys(serverName, databaseName, database, outputPath);
                     break;
@@ -189,15 +229,19 @@ namespace SQLScripter.Services
             ScriptViews(serverName, databaseName, database, outputPath);
             ScriptProcedures(serverName, databaseName, database, outputPath);
             ScriptFunctions(serverName, databaseName, database, outputPath);
-            ScriptTriggers(serverName, databaseName, database, outputPath);
             ScriptSynonyms(serverName, databaseName, database, outputPath);
+            
+            // Script these separately as individual files/folders when requested
+            // or when ScriptOneFilePerObjectType is enabled.
+            ScriptTriggers(serverName, databaseName, database, outputPath);
             ScriptIndexes(serverName, databaseName, database, outputPath);
             ScriptForeignKeys(serverName, databaseName, database, outputPath);
+            ScriptChecks(serverName, databaseName, database, outputPath);
+            
             ScriptUserDefinedTypes(serverName, databaseName, database, outputPath);
             ScriptUserDefinedTableTypes(serverName, databaseName, database, outputPath);
             ScriptUserDefinedDataTypes(serverName, databaseName, database, outputPath);
             ScriptAssemblies(serverName, databaseName, database, outputPath);
-            ScriptChecks(serverName, databaseName, database, outputPath);
             ScriptFileGroups(serverName, databaseName, database, outputPath);
             ScriptPartitionSchemes(serverName, databaseName, database, outputPath);
             ScriptPartitionFunctions(serverName, databaseName, database, outputPath);
@@ -206,17 +250,6 @@ namespace SQLScripter.Services
             ScriptRoles(serverName, databaseName, database, outputPath);
             ScriptUsers(serverName, databaseName, database, outputPath);
             ScriptDatabaseDdlTriggers(serverName, databaseName, database, outputPath);
-            
-            // Script server-level objects if requested
-            if (scriptServerLevelObjects)
-            {
-                ScriptJobs(serverName, databaseName, server, outputPath);
-                ScriptLinkedServers(serverName, databaseName, server, outputPath);
-                ScriptCredentials(serverName, databaseName, server, outputPath);
-                ScriptProxyAccounts(serverName, databaseName, server, outputPath);
-                ScriptServerDdlTriggers(serverName, databaseName, server, outputPath);
-                ScriptLogins(serverName, databaseName, server, outputPath);
-            }
         }
 
         private void ScriptTables(string serverName, string databaseName, Database database, string outputPath)
@@ -228,18 +261,73 @@ namespace SQLScripter.Services
                 string objectPath = Path.Combine(outputPath, "Tables");
                 Directory.CreateDirectory(objectPath);
 
-                foreach (Table table in database.Tables)
+                if (_scriptOneFilePerObjectType)
                 {
-                    if (table.IsSystemObject)
-                        continue;
+                    string fileName = Path.Combine(objectPath, "Tables.sql");
+                    using (var writer = new StreamWriter(fileName))
+                    {
+                        int objectCount = database.Tables.Cast<Table>().Count(t => !t.IsSystemObject);
+                        WriteFileHeader(writer, serverName, databaseName, "Tables", objectCount);
+                        writer.WriteLine($"USE [{databaseName}];");
+                        writer.WriteLine("GO");
+                        writer.WriteLine();
 
-                    try
-                    {
-                        ScriptTable(serverName, databaseName, table, objectPath);
+                        int i = 1;
+                        foreach (Table table in database.Tables)
+                        {
+                            if (table.IsSystemObject)
+                                continue;
+
+                            try
+                            {
+                                // When scripting all tables to one file, exclude indexes/constraints
+                                // because they will be scripted separately
+                                var options = new ScriptingOptions
+                                {
+                                    AnsiFile = true,
+                                    AllowSystemObjects = false,
+                                    Indexes = false,
+                                    DriAll = false,
+                                    IncludeHeaders = true
+                                };
+
+                                var scripts = table.Script(options);
+                                if (scripts != null)
+                                {
+                                    writer.WriteLine($"-- {i++}: {table.Schema}.{table.Name}");
+                                    foreach (string? script in scripts)
+                                    {
+                                        if (!string.IsNullOrEmpty(script) && !script.StartsWith("SET"))
+                                        {
+                                            writer.WriteLine(script);
+                                            writer.WriteLine("GO");
+                                        }
+                                    }
+                                    writer.WriteLine();
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Error(serverName, databaseName, $"Error scripting table {table.Name}", ex);
+                            }
+                        }
                     }
-                    catch (Exception ex)
+                }
+                else
+                {
+                    foreach (Table table in database.Tables)
                     {
-                        _logger.Error(serverName, databaseName, $"Error scripting table {table.Name}", ex);
+                        if (table.IsSystemObject)
+                            continue;
+
+                        try
+                        {
+                            ScriptTable(serverName, databaseName, table, objectPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(serverName, databaseName, $"Error scripting table {table.Name}", ex);
+                        }
                     }
                 }
             }
@@ -283,6 +371,32 @@ namespace SQLScripter.Services
                             }
                         }
                     }
+                    
+                    // Script table triggers
+                    foreach (Trigger trigger in table.Triggers)
+                    {
+                        try
+                        {
+                            writer.WriteLine();
+                            writer.WriteLine($"-- Trigger: {trigger.Name}");
+                            var triggerScripts = trigger.Script(options);
+                            if (triggerScripts != null)
+                            {
+                                foreach (string? script in triggerScripts)
+                                {
+                                    if (!string.IsNullOrEmpty(script))
+                                    {
+                                        writer.WriteLine(script);
+                                        writer.WriteLine("GO");
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(serverName, databaseName, $"Error scripting trigger {trigger.Name} for table {table.Name}", ex);
+                        }
+                    }
                 }
             }
             catch (Exception ex)
@@ -300,18 +414,69 @@ namespace SQLScripter.Services
                 string objectPath = Path.Combine(outputPath, "Views");
                 Directory.CreateDirectory(objectPath);
 
-                foreach (View view in database.Views)
+                if (_scriptOneFilePerObjectType)
                 {
-                    if (view.IsSystemObject)
-                        continue;
+                    string fileName = Path.Combine(objectPath, "Views.sql");
+                    using (var writer = new StreamWriter(fileName))
+                    {
+                        int objectCount = database.Views.Cast<View>().Count(v => !v.IsSystemObject);
+                        WriteFileHeader(writer, serverName, databaseName, "Views", objectCount);
+                        writer.WriteLine($"USE [{databaseName}];");
+                        writer.WriteLine("GO");
+                        writer.WriteLine();
 
-                    try
-                    {
-                        ScriptView(serverName, databaseName, view, objectPath);
+                        int i = 1;
+                        foreach (View view in database.Views)
+                        {
+                            if (view.IsSystemObject)
+                                continue;
+
+                            try
+                            {
+                                var options = new ScriptingOptions
+                                {
+                                    AnsiFile = true,
+                                    AllowSystemObjects = false,
+                                    IncludeHeaders = true
+                                };
+
+                                var scripts = view.Script(options);
+                                if (scripts != null)
+                                {
+                                    writer.WriteLine($"-- {i++}: {view.Schema}.{view.Name}");
+                                    foreach (string? script in scripts)
+                                    {
+                                        if (!string.IsNullOrEmpty(script) && !script.StartsWith("SET"))
+                                        {
+                                            writer.WriteLine(script);
+                                            writer.WriteLine("GO");
+                                        }
+                                    }
+                                    writer.WriteLine();
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Error(serverName, databaseName, $"Error scripting view {view.Name}", ex);
+                            }
+                        }
                     }
-                    catch (Exception ex)
+                }
+                else
+                {
+                    foreach (View view in database.Views)
                     {
-                        _logger.Error(serverName, databaseName, $"Error scripting view {view.Name}", ex);
+                        if (view.IsSystemObject)
+                            continue;
+
+                        try
+                        {
+                            ScriptView(serverName, databaseName, view, objectPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(serverName, databaseName, $"Error scripting view {view.Name}", ex);
+                        }
                     }
                 }
             }
@@ -370,18 +535,69 @@ namespace SQLScripter.Services
                 string objectPath = Path.Combine(outputPath, "StoredProcedures");
                 Directory.CreateDirectory(objectPath);
 
-                foreach (StoredProcedure proc in database.StoredProcedures)
+                if (_scriptOneFilePerObjectType)
                 {
-                    if (proc.IsSystemObject)
-                        continue;
+                    string fileName = Path.Combine(objectPath, "StoredProcedures.sql");
+                    using (var writer = new StreamWriter(fileName))
+                    {
+                        int objectCount = database.StoredProcedures.Cast<StoredProcedure>().Count(p => !p.IsSystemObject);
+                        WriteFileHeader(writer, serverName, databaseName, "Stored Procedures", objectCount);
+                        writer.WriteLine($"USE [{databaseName}];");
+                        writer.WriteLine("GO");
+                        writer.WriteLine();
 
-                    try
-                    {
-                        ScriptProcedure(serverName, databaseName, proc, objectPath);
+                        int i = 1;
+                        foreach (StoredProcedure proc in database.StoredProcedures)
+                        {
+                            if (proc.IsSystemObject)
+                                continue;
+
+                            try
+                            {
+                                var options = new ScriptingOptions
+                                {
+                                    AnsiFile = true,
+                                    AllowSystemObjects = false,
+                                    IncludeHeaders = true
+                                };
+
+                                var scripts = proc.Script(options);
+                                if (scripts != null)
+                                {
+                                    writer.WriteLine($"-- {i++}: {proc.Schema}.{proc.Name}");
+                                    foreach (string? script in scripts)
+                                    {
+                                        if (!string.IsNullOrEmpty(script) && !script.StartsWith("SET"))
+                                        {
+                                            writer.WriteLine(script);
+                                            writer.WriteLine("GO");
+                                        }
+                                    }
+                                    writer.WriteLine();
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Error(serverName, databaseName, $"Error scripting procedure {proc.Name}", ex);
+                            }
+                        }
                     }
-                    catch (Exception ex)
+                }
+                else
+                {
+                    foreach (StoredProcedure proc in database.StoredProcedures)
                     {
-                        _logger.Error(serverName, databaseName, $"Error scripting procedure {proc.Name}", ex);
+                        if (proc.IsSystemObject)
+                            continue;
+
+                        try
+                        {
+                            ScriptProcedure(serverName, databaseName, proc, objectPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(serverName, databaseName, $"Error scripting procedure {proc.Name}", ex);
+                        }
                     }
                 }
             }
@@ -440,18 +656,69 @@ namespace SQLScripter.Services
                 string objectPath = Path.Combine(outputPath, "Functions");
                 Directory.CreateDirectory(objectPath);
 
-                foreach (UserDefinedFunction func in database.UserDefinedFunctions)
+                if (_scriptOneFilePerObjectType)
                 {
-                    if (func.IsSystemObject)
-                        continue;
+                    string fileName = Path.Combine(objectPath, "Functions.sql");
+                    using (var writer = new StreamWriter(fileName))
+                    {
+                        int objectCount = database.UserDefinedFunctions.Cast<UserDefinedFunction>().Count(f => !f.IsSystemObject);
+                        WriteFileHeader(writer, serverName, databaseName, "Functions", objectCount);
+                        writer.WriteLine($"USE [{databaseName}];");
+                        writer.WriteLine("GO");
+                        writer.WriteLine();
 
-                    try
-                    {
-                        ScriptFunction(serverName, databaseName, func, objectPath);
+                        int i = 1;
+                        foreach (UserDefinedFunction func in database.UserDefinedFunctions)
+                        {
+                            if (func.IsSystemObject)
+                                continue;
+
+                            try
+                            {
+                                var options = new ScriptingOptions
+                                {
+                                    AnsiFile = true,
+                                    AllowSystemObjects = false,
+                                    IncludeHeaders = true
+                                };
+
+                                var scripts = func.Script(options);
+                                if (scripts != null)
+                                {
+                                    writer.WriteLine($"-- {i++}: {func.Schema}.{func.Name}");
+                                    foreach (string? script in scripts)
+                                    {
+                                        if (!string.IsNullOrEmpty(script) && !script.StartsWith("SET"))
+                                        {
+                                            writer.WriteLine(script);
+                                            writer.WriteLine("GO");
+                                        }
+                                    }
+                                    writer.WriteLine();
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Error(serverName, databaseName, $"Error scripting function {func.Name}", ex);
+                            }
+                        }
                     }
-                    catch (Exception ex)
+                }
+                else
+                {
+                    foreach (UserDefinedFunction func in database.UserDefinedFunctions)
                     {
-                        _logger.Error(serverName, databaseName, $"Error scripting function {func.Name}", ex);
+                        if (func.IsSystemObject)
+                            continue;
+
+                        try
+                        {
+                            ScriptFunction(serverName, databaseName, func, objectPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error(serverName, databaseName, $"Error scripting function {func.Name}", ex);
+                        }
                     }
                 }
             }
@@ -510,21 +777,53 @@ namespace SQLScripter.Services
                 string objectPath = Path.Combine(outputPath, "Triggers");
                 Directory.CreateDirectory(objectPath);
 
-                // Table triggers
-                foreach (Table table in database.Tables)
+                string fileName = Path.Combine(objectPath, "Triggers.sql");
+                using (var writer = new StreamWriter(fileName))
                 {
-                    if (table.IsSystemObject)
-                        continue;
+                    int objectCount = database.Tables.Cast<Table>().Where(t => !t.IsSystemObject).Sum(t => t.Triggers.Count) 
+                                       + database.Views.Cast<View>().Where(v => !v.IsSystemObject).Sum(v => v.Triggers.Count);
+                    WriteFileHeader(writer, serverName, databaseName, "Triggers", objectCount);
+                    writer.WriteLine($"USE [{databaseName}];");
+                    writer.WriteLine("GO");
+                    writer.WriteLine();
 
-                    foreach (Trigger trigger in table.Triggers)
+                    int i = 1;
+                    // Table triggers
+                    foreach (Table table in database.Tables)
                     {
-                        try
+                        if (table.IsSystemObject)
+                            continue;
+
+                        foreach (Trigger trigger in table.Triggers)
                         {
-                            ScriptTrigger(serverName, databaseName, trigger, objectPath);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.Error(serverName, databaseName, $"Error scripting trigger {trigger.Name}", ex);
+                            try
+                            {
+                                var options = new ScriptingOptions
+                                {
+                                    AnsiFile = true,
+                                    AllowSystemObjects = false,
+                                    IncludeHeaders = true
+                                };
+
+                                var scripts = trigger.Script(options);
+                                if (scripts != null)
+                                {
+                                    writer.WriteLine($"-- {i++}: {trigger.Name} on {table.Schema}.{table.Name}");
+                                    foreach (string? script in scripts)
+                                    {
+                                        if (!string.IsNullOrEmpty(script) && !script.StartsWith("SET"))
+                                        {
+                                            writer.WriteLine(script);
+                                            writer.WriteLine("GO");
+                                        }
+                                    }
+                                    writer.WriteLine();
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.Error(serverName, databaseName, $"Error scripting trigger {trigger.Name}", ex);
+                            }
                         }
                     }
                 }
@@ -594,62 +893,41 @@ namespace SQLScripter.Services
                     NonClusteredIndexes = true
                 };
 
-                foreach (Table table in database.Tables)
+                string fileName = Path.Combine(objectPath, "Indexes.sql");
+                using (var writer = new StreamWriter(fileName))
                 {
-                    if (table.IsSystemObject || table.Indexes.Count == 0)
-                        continue;
+                    int objectCount = database.Tables.Cast<Table>().Where(t => !t.IsSystemObject).Sum(t => t.Indexes.Count);
+                    WriteFileHeader(writer, serverName, databaseName, "Indexes", objectCount);
+                    writer.WriteLine($"USE [{databaseName}];");
+                    writer.WriteLine("GO");
 
-                    try
+                    int i = 1;
+                    foreach (Table table in database.Tables)
                     {
-                        if (_scriptOneFilePerObjectType)
-                        {
-                            // In single file mode, we still group by table for indexes as it makes more sense
-                            string fileName = Path.Combine(objectPath, $"{FixObjectName(table.Name)}_Indexes.sql");
-                            using (var writer = new StreamWriter(fileName))
-                            {
-                                writer.WriteLine($"-- Indexes for table: {table.Schema}.{table.Name}");
-                                writer.WriteLine($"USE [{databaseName}];");
-                                writer.WriteLine("GO");
+                        if (table.IsSystemObject || table.Indexes.Count == 0)
+                            continue;
 
-                                foreach (Microsoft.SqlServer.Management.Smo.Index index in table.Indexes)
-                                {
-                                    var scripts = index.Script(options);
-                                    if (scripts != null)
-                                    {
-                                        foreach (string? s in scripts)
-                                        {
-                                            writer.WriteLine(s?.TrimEnd());
-                                            writer.WriteLine("GO");
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        else
+                        try
                         {
                             foreach (Microsoft.SqlServer.Management.Smo.Index index in table.Indexes)
                             {
-                                string fileName = Path.Combine(objectPath, $"{FixObjectName(table.Name)}.{FixObjectName(index.Name)}.sql");
-                                using (var writer = new StreamWriter(fileName))
+                                var scripts = index.Script(options);
+                                if (scripts != null)
                                 {
-                                    writer.WriteLine($"-- Index: {index.Name} on {table.Schema}.{table.Name}");
-                                    writer.WriteLine($"USE [{databaseName}];");
-                                    writer.WriteLine("GO");
-
-                                    var scripts = index.Script(options);
-                                    if (scripts != null)
+                                    writer.WriteLine($"-- {i++}: {index.Name} on {table.Schema}.{table.Name}");
+                                    foreach (string? s in scripts)
                                     {
-                                        foreach (string? s in scripts)
+                                        if (s != null && !s.StartsWith("SET"))
                                         {
-                                            writer.WriteLine(s?.TrimEnd());
+                                            writer.WriteLine(s.TrimEnd());
                                             writer.WriteLine("GO");
                                         }
                                     }
                                 }
                             }
                         }
+                        catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting indexes for table {table.Name}", ex); }
                     }
-                    catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting indexes for table {table.Name}", ex); }
                 }
             }
             catch (Exception ex) { _logger.WriteToLog(serverName, databaseName, "Error", ex); }
@@ -671,28 +949,31 @@ namespace SQLScripter.Services
                     DriForeignKeys = true
                 };
 
-                foreach (Table table in database.Tables)
+                string fileName = Path.Combine(objectPath, "ForeignKeys.sql");
+                using (var writer = new StreamWriter(fileName))
                 {
-                    if (table.IsSystemObject || table.ForeignKeys.Count == 0)
-                        continue;
+                    int objectCount = database.Tables.Cast<Table>().Where(t => !t.IsSystemObject).Sum(t => t.ForeignKeys.Count);
+                    WriteFileHeader(writer, serverName, databaseName, "Foreign Keys", objectCount);
+                    writer.WriteLine($"USE [{databaseName}];");
+                    writer.WriteLine("GO");
 
-                    try
+                    int i = 1;
+                    foreach (Table table in database.Tables)
                     {
-                        if (_scriptOneFilePerObjectType)
-                        {
-                            string fileName = Path.Combine(objectPath, $"{FixObjectName(table.Name)}_ForeignKeys.sql");
-                            using (var writer = new StreamWriter(fileName))
-                            {
-                                writer.WriteLine($"-- Foreign Keys for table: {table.Schema}.{table.Name}");
-                                writer.WriteLine($"USE [{databaseName}];");
-                                writer.WriteLine("GO");
+                        if (table.IsSystemObject || table.ForeignKeys.Count == 0)
+                            continue;
 
-                                var scripts = table.Script(options);
+                        try
+                        {
+                            foreach (ForeignKey fk in table.ForeignKeys)
+                            {
+                                var scripts = fk.Script(options);
                                 if (scripts != null)
                                 {
+                                    writer.WriteLine($"-- {i++}: {fk.Name} on {table.Schema}.{table.Name}");
                                     foreach (string? s in scripts)
                                     {
-                                        if (s != null && !s.StartsWith("SET") && !s.Contains("CREATE TABLE"))
+                                        if (s != null && !s.StartsWith("SET"))
                                         {
                                             writer.WriteLine(s.TrimEnd());
                                             writer.WriteLine("GO");
@@ -701,31 +982,8 @@ namespace SQLScripter.Services
                                 }
                             }
                         }
-                        else
-                        {
-                            foreach (ForeignKey fk in table.ForeignKeys)
-                            {
-                                string fileName = Path.Combine(objectPath, $"{FixObjectName(table.Name)}.{FixObjectName(fk.Name)}.sql");
-                                using (var writer = new StreamWriter(fileName))
-                                {
-                                    writer.WriteLine($"-- Foreign Key: {fk.Name} on {table.Schema}.{table.Name}");
-                                    writer.WriteLine($"USE [{databaseName}];");
-                                    writer.WriteLine("GO");
-
-                                    var scripts = fk.Script(options);
-                                    if (scripts != null)
-                                    {
-                                        foreach (string? s in scripts)
-                                        {
-                                            writer.WriteLine(s?.TrimEnd());
-                                            writer.WriteLine("GO");
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting foreign keys for table {table.Name}", ex); }
                     }
-                    catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting foreign keys for table {table.Name}", ex); }
                 }
             }
             catch (Exception ex) { _logger.WriteToLog(serverName, databaseName, "Error", ex); }
@@ -745,32 +1003,27 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "Synonyms.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Synonyms for database: {databaseName}");
+                        int objectCount = database.Synonyms.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "Synonyms", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
-                        writer.WriteLine();
 
                         int i = 1;
                         foreach (Synonym syn in database.Synonyms)
                         {
-                            try
+                            var scripts = syn.Script(new ScriptingOptions { AnsiFile = true });
+                            if (scripts != null)
                             {
-                                var scripts = syn.Script(new ScriptingOptions { AnsiFile = true });
-                                if (scripts != null)
+                                writer.WriteLine($"-- {i++}: {syn.Schema}.{syn.Name}");
+                                foreach (string? s in scripts)
                                 {
-                                    writer.WriteLine($"-- {i++}: {syn.Name}");
-                                    foreach (string? s in scripts)
+                                    if (s != null && !s.StartsWith("SET"))
                                     {
-                                        if (s != null && !s.StartsWith("SET"))
-                                        {
-                                            writer.WriteLine(s.TrimEnd());
-                                            writer.WriteLine("GO");
-                                        }
+                                        writer.WriteLine(s.TrimEnd());
+                                        writer.WriteLine("GO");
                                     }
-                                    writer.WriteLine();
                                 }
                             }
-                            catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting synonym {syn.Name}", ex); }
                         }
                     }
                 }
@@ -809,7 +1062,7 @@ namespace SQLScripter.Services
         {
             try
             {
-                _logger.Info(serverName, "", "Scripting jobs...");
+                _logger.Info(serverName, databaseName, "Scripting jobs...");
                 
                 string objectPath = Path.Combine(outputPath, "Jobs");
                 Directory.CreateDirectory(objectPath);
@@ -819,32 +1072,27 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "Jobs.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- SQL Server Agent Jobs for server: {serverName}");
+                        int objectCount = server.JobServer.Jobs.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "Jobs", objectCount);
                         writer.WriteLine("USE [msdb];");
                         writer.WriteLine("GO");
-                        writer.WriteLine();
 
                         int i = 1;
                         foreach (Job job in server.JobServer.Jobs)
                         {
-                            try
+                            var scripts = job.Script(new ScriptingOptions { AnsiFile = true });
+                            if (scripts != null)
                             {
-                                var scripts = job.Script(new ScriptingOptions { AnsiFile = true });
-                                if (scripts != null)
+                                writer.WriteLine($"-- {i++}: {job.Name}");
+                                foreach (string? s in scripts)
                                 {
-                                    writer.WriteLine($"-- {i++}: {job.Name}");
-                                    foreach (string? s in scripts)
+                                    if (s != null && !s.StartsWith("SET"))
                                     {
-                                        if (s != null && !s.StartsWith("SET"))
-                                        {
-                                            writer.WriteLine(s.TrimEnd());
-                                            writer.WriteLine("GO");
-                                        }
+                                        writer.WriteLine(s.TrimEnd());
+                                        writer.WriteLine("GO");
                                     }
-                                    writer.WriteLine();
                                 }
                             }
-                            catch (Exception ex) { _logger.Error(serverName, "", $"Error scripting job {job.Name}", ex); }
                         }
                     }
                 }
@@ -872,11 +1120,11 @@ namespace SQLScripter.Services
                                 }
                             }
                         }
-                        catch (Exception ex) { _logger.Error(serverName, "", $"Error scripting job {job.Name}", ex); }
+                        catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting job {job.Name}", ex); }
                     }
                 }
             }
-            catch (Exception ex) { _logger.WriteToLog(serverName, "", "Error", ex); }
+            catch (Exception ex) { _logger.WriteToLog(serverName, databaseName, "Error", ex); }
         }
 
         private void ScriptUserDefinedTypes(string serverName, string databaseName, Database database, string outputPath)
@@ -893,30 +1141,27 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "UserDefinedTypes.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- User Defined Types for database: {databaseName}");
+                        int objectCount = database.UserDefinedTypes.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "User Defined Types", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
                         int i = 1;
                         foreach (UserDefinedType udt in database.UserDefinedTypes)
                         {
-                            try
+                            var scripts = udt.Script(new ScriptingOptions { AnsiFile = true });
+                            if (scripts != null)
                             {
-                                var scripts = udt.Script(new ScriptingOptions { AnsiFile = true });
-                                if (scripts != null)
+                                writer.WriteLine($"-- {i++}: {udt.Schema}.{udt.Name}");
+                                foreach (string? s in scripts)
                                 {
-                                    writer.WriteLine($"-- {i++}: {udt.Name}");
-                                    foreach (string? s in scripts)
+                                    if (s != null && !s.StartsWith("SET"))
                                     {
-                                        if (s != null && !s.StartsWith("SET"))
-                                        {
-                                            writer.WriteLine(s.TrimEnd());
-                                            writer.WriteLine("GO");
-                                        }
+                                        writer.WriteLine(s.TrimEnd());
+                                        writer.WriteLine("GO");
                                     }
                                 }
                             }
-                            catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting UDT {udt.Name}", ex); }
                         }
                     }
                 }
@@ -965,30 +1210,27 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "UserDefinedTableTypes.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- User Defined Table Types for database: {databaseName}");
+                        int objectCount = database.UserDefinedTableTypes.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "User Defined Table Types", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
                         int i = 1;
                         foreach (UserDefinedTableType udtt in database.UserDefinedTableTypes)
                         {
-                            try
+                            var scripts = udtt.Script(new ScriptingOptions { AnsiFile = true });
+                            if (scripts != null)
                             {
-                                var scripts = udtt.Script(new ScriptingOptions { AnsiFile = true });
-                                if (scripts != null)
+                                writer.WriteLine($"-- {i++}: {udtt.Schema}.{udtt.Name}");
+                                foreach (string? s in scripts)
                                 {
-                                    writer.WriteLine($"-- {i++}: {udtt.Name}");
-                                    foreach (string? s in scripts)
+                                    if (s != null && !s.StartsWith("SET"))
                                     {
-                                        if (s != null && !s.StartsWith("SET"))
-                                        {
-                                            writer.WriteLine(s.TrimEnd());
-                                            writer.WriteLine("GO");
-                                        }
+                                        writer.WriteLine(s.TrimEnd());
+                                        writer.WriteLine("GO");
                                     }
                                 }
                             }
-                            catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting UDTT {udtt.Name}", ex); }
                         }
                     }
                 }
@@ -1037,30 +1279,27 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "UserDefinedDataTypes.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- User Defined Data Types for database: {databaseName}");
+                        int objectCount = database.UserDefinedDataTypes.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "User Defined Data Types", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
                         int i = 1;
                         foreach (UserDefinedDataType uddt in database.UserDefinedDataTypes)
                         {
-                            try
+                            var scripts = uddt.Script(new ScriptingOptions { AnsiFile = true });
+                            if (scripts != null)
                             {
-                                var scripts = uddt.Script(new ScriptingOptions { AnsiFile = true });
-                                if (scripts != null)
+                                writer.WriteLine($"-- {i++}: {uddt.Schema}.{uddt.Name}");
+                                foreach (string? s in scripts)
                                 {
-                                    writer.WriteLine($"-- {i++}: {uddt.Name}");
-                                    foreach (string? s in scripts)
+                                    if (s != null && !s.StartsWith("SET"))
                                     {
-                                        if (s != null && !s.StartsWith("SET"))
-                                        {
-                                            writer.WriteLine(s.TrimEnd());
-                                            writer.WriteLine("GO");
-                                        }
+                                        writer.WriteLine(s.TrimEnd());
+                                        writer.WriteLine("GO");
                                     }
                                 }
                             }
-                            catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting UDDT {uddt.Name}", ex); }
                         }
                     }
                 }
@@ -1109,30 +1348,27 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "Assemblies.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Assemblies for database: {databaseName}");
+                        int objectCount = database.Assemblies.Cast<SqlAssembly>().Count(ass => !ass.IsSystemObject);
+                        WriteFileHeader(writer, serverName, databaseName, "Assemblies", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
                         int i = 1;
                         foreach (SqlAssembly ass in database.Assemblies)
                         {
-                            try
+                            var scripts = ass.Script(new ScriptingOptions { AnsiFile = true });
+                            if (scripts != null)
                             {
-                                var scripts = ass.Script(new ScriptingOptions { AnsiFile = true });
-                                if (scripts != null)
+                                writer.WriteLine($"-- {i++}: {ass.Name}");
+                                foreach (string? s in scripts)
                                 {
-                                    writer.WriteLine($"-- {i++}: {ass.Name}");
-                                    foreach (string? s in scripts)
+                                    if (s != null && !s.StartsWith("SET"))
                                     {
-                                        if (s != null && !s.StartsWith("SET"))
-                                        {
-                                            writer.WriteLine(s.TrimEnd());
-                                            writer.WriteLine("GO");
-                                        }
+                                        writer.WriteLine(s.TrimEnd());
+                                        writer.WriteLine("GO");
                                     }
                                 }
                             }
-                            catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting assembly {ass.Name}", ex); }
                         }
                     }
                 }
@@ -1183,37 +1419,21 @@ namespace SQLScripter.Services
                     DriChecks = true
                 };
 
-                foreach (Table table in database.Tables)
+                string fileName = Path.Combine(objectPath, "Checks.sql");
+                using (var writer = new StreamWriter(fileName))
                 {
-                    if (table.IsSystemObject || table.Checks.Count == 0)
-                        continue;
+                    int objectCount = database.Tables.Cast<Table>().Where(t => !t.IsSystemObject).Sum(t => t.Checks.Count);
+                    WriteFileHeader(writer, serverName, databaseName, "Check Constraints", objectCount);
+                    writer.WriteLine($"USE [{databaseName}];");
+                    writer.WriteLine("GO");
 
-                    try
+                    int i = 1;
+                    foreach (Table table in database.Tables)
                     {
-                        if (_scriptOneFilePerObjectType)
-                        {
-                            string fileName = Path.Combine(objectPath, $"{FixObjectName(table.Name)}_Checks.sql");
-                            using (var writer = new StreamWriter(fileName))
-                            {
-                                writer.WriteLine($"-- Checks for table: {table.Schema}.{table.Name}");
-                                writer.WriteLine($"USE [{databaseName}];");
-                                writer.WriteLine("GO");
+                        if (table.IsSystemObject || table.Checks.Count == 0)
+                            continue;
 
-                                var scripts = table.Script(options);
-                                if (scripts != null)
-                                {
-                                    foreach (string? s in scripts)
-                                    {
-                                        if (s != null && s.Contains("ADD"))
-                                        {
-                                            writer.WriteLine(s.TrimEnd());
-                                            writer.WriteLine("GO");
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        else
+                        try
                         {
                             var scripts = table.Script(options);
                             if (scripts != null)
@@ -1222,22 +1442,15 @@ namespace SQLScripter.Services
                                 {
                                     if (s != null && s.Contains("ADD"))
                                     {
-                                        // A bit simplified compared to original GetNextWord logic for now
-                                        string fileName = Path.Combine(objectPath, $"{FixObjectName(table.Name)}_Check_{Guid.NewGuid().ToString().Substring(0, 8)}.sql");
-                                        using (var writer = new StreamWriter(fileName))
-                                        {
-                                            writer.WriteLine($"-- Check for table: {table.Schema}.{table.Name}");
-                                            writer.WriteLine($"USE [{databaseName}];");
-                                            writer.WriteLine("GO");
-                                            writer.WriteLine(s.TrimEnd());
-                                            writer.WriteLine("GO");
-                                        }
+                                        writer.WriteLine($"-- {i++}: Check for table {table.Schema}.{table.Name}");
+                                        writer.WriteLine(s.TrimEnd());
+                                        writer.WriteLine("GO");
                                     }
                                 }
                             }
                         }
+                        catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting checks for table {table.Name}", ex); }
                     }
-                    catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting checks for table {table.Name}", ex); }
                 }
             }
             catch (Exception ex) { _logger.WriteToLog(serverName, databaseName, "Error", ex); }
@@ -1257,14 +1470,16 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "FileGroups.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- File Groups for database: {databaseName}");
+                        int objectCount = database.FileGroups.Cast<FileGroup>().Count(fg => fg.Name.ToUpper() != "PRIMARY");
+                        WriteFileHeader(writer, serverName, databaseName, "File Groups", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
+                        int i = 1;
                         foreach (FileGroup fg in database.FileGroups)
                         {
                             if (fg.Name.ToUpper() == "PRIMARY") continue;
-
+                            writer.WriteLine($"-- {i++}: {fg.Name}");
                             writer.WriteLine($"IF NOT EXISTS (SELECT groupname FROM sys.sysfilegroups WHERE groupname = '{fg.Name}')");
                             writer.WriteLine($"    ALTER DATABASE [{databaseName}] ADD FILEGROUP [{fg.Name}];");
                             writer.WriteLine("GO");
@@ -1307,15 +1522,18 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "PartitionSchemes.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Partition Schemes for database: {databaseName}");
+                        int objectCount = database.PartitionSchemes.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "Partition Schemes", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
+                        int i = 1;
                         foreach (PartitionScheme ps in database.PartitionSchemes)
                         {
                             var scripts = ps.Script(new ScriptingOptions { AnsiFile = true });
                             if (scripts != null)
                             {
+                                writer.WriteLine($"-- {i++}: {ps.Name}");
                                 foreach (string? s in scripts)
                                 {
                                     if (s != null && !s.StartsWith("SET"))
@@ -1369,15 +1587,18 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "PartitionFunctions.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Partition Functions for database: {databaseName}");
+                        int objectCount = database.PartitionFunctions.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "Partition Functions", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
+                        int i = 1;
                         foreach (PartitionFunction pf in database.PartitionFunctions)
                         {
                             var scripts = pf.Script(new ScriptingOptions { AnsiFile = true });
                             if (scripts != null)
                             {
+                                writer.WriteLine($"-- {i++}: {pf.Name}");
                                 foreach (string? s in scripts)
                                 {
                                     if (s != null && !s.StartsWith("SET"))
@@ -1431,15 +1652,18 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "PlanGuides.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Plan Guides for database: {databaseName}");
+                        int objectCount = database.PlanGuides.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "Plan Guides", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
+                        int i = 1;
                         foreach (PlanGuide pg in database.PlanGuides)
                         {
                             var scripts = pg.Script(new ScriptingOptions { AnsiFile = true });
                             if (scripts != null)
                             {
+                                writer.WriteLine($"-- {i++}: {pg.Name}");
                                 foreach (string? s in scripts)
                                 {
                                     if (s != null && !s.StartsWith("SET"))
@@ -1493,7 +1717,8 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "Schemas.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Schemas for database: {databaseName}");
+                        int objectCount = database.Schemas.Cast<Schema>().Count(sch => !sch.IsSystemObject);
+                        WriteFileHeader(writer, serverName, databaseName, "Schemas", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
@@ -1563,7 +1788,8 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "Roles.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Roles for database: {databaseName}");
+                        int objectCount = database.Roles.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "Database Roles", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
@@ -1631,7 +1857,8 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "Users.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Users for database: {databaseName}");
+                        int objectCount = database.Users.Cast<User>().Count(u => !u.IsSystemObject);
+                        WriteFileHeader(writer, serverName, databaseName, "Database Users", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
@@ -1691,7 +1918,7 @@ namespace SQLScripter.Services
         {
             try
             {
-                _logger.Info(serverName, "", "Scripting linked servers...");
+                _logger.Info(serverName, databaseName, "Scripting linked servers...");
                 
                 string objectPath = Path.Combine(outputPath, "LinkedServers");
                 Directory.CreateDirectory(objectPath);
@@ -1701,7 +1928,8 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "LinkedServers.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Linked Servers for server: {serverName}");
+                        int objectCount = server.LinkedServers.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "Linked Servers", objectCount);
                         writer.WriteLine("USE [master];");
                         writer.WriteLine("GO");
 
@@ -1748,60 +1976,94 @@ namespace SQLScripter.Services
                                 }
                             }
                         }
-                        catch (Exception ex) { _logger.Error(serverName, "", $"Error scripting linked server {ls.Name}", ex); }
+                        catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting linked server {ls.Name}", ex); }
                     }
                 }
             }
-            catch (Exception ex) { _logger.WriteToLog(serverName, "", "Error", ex); }
+            catch (Exception ex) { _logger.WriteToLog(serverName, databaseName, "Error", ex); }
         }
 
         private void ScriptCredentials(string serverName, string databaseName, Server server, string outputPath)
         {
             try
             {
-                _logger.Info(serverName, "", "Scripting credentials...");
+                _logger.Info(serverName, databaseName, "Scripting credentials...");
                 
                 string objectPath = Path.Combine(outputPath, "Credentials");
                 Directory.CreateDirectory(objectPath);
 
-                string fileName = Path.Combine(objectPath, "Credentials.sql");
-                using (var writer = new StreamWriter(fileName))
+                if (_scriptOneFilePerObjectType)
                 {
-                    writer.WriteLine($"-- Credentials for server: {serverName}");
-                    writer.WriteLine("USE [master];");
-                    writer.WriteLine("GO");
+                    string fileName = Path.Combine(objectPath, "Credentials.sql");
+                    using (var writer = new StreamWriter(fileName))
+                    {
+                        int objectCount = server.Credentials.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "Credentials", objectCount);
+                        writer.WriteLine("USE [master];");
+                        writer.WriteLine("GO");
 
-                    int i = 1;
+                        int i = 1;
+                        foreach (Credential c in server.Credentials)
+                        {
+                            try
+                            {
+                                var scripts = c.EnumLogins(); // Original used EnumLogins
+                                if (scripts != null)
+                                {
+                                    writer.WriteLine($"-- {i++}: {c.Name}");
+                                    foreach (string? s in scripts)
+                                    {
+                                        if (s != null && !s.StartsWith("SET"))
+                                        {
+                                            writer.WriteLine(s.TrimEnd());
+                                            writer.WriteLine("GO");
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting credential {c.Name}", ex); }
+                        }
+                    }
+                }
+                else
+                {
                     foreach (Credential c in server.Credentials)
                     {
                         try
                         {
-                            var scripts = c.EnumLogins(); // Original used EnumLogins
-                            if (scripts != null)
+                            string fileName = Path.Combine(objectPath, $"{FixObjectName(c.Name)}.sql");
+                            using (var writer = new StreamWriter(fileName))
                             {
-                                writer.WriteLine($"-- {i++}: {c.Name}");
-                                foreach (string? s in scripts)
+                                writer.WriteLine($"-- Credential: {c.Name}");
+                                writer.WriteLine("USE [master];");
+                                writer.WriteLine("GO");
+
+                                var scripts = c.EnumLogins();
+                                if (scripts != null)
                                 {
-                                    if (s != null && !s.StartsWith("SET"))
+                                    foreach (string? s in scripts)
                                     {
-                                        writer.WriteLine(s.TrimEnd());
-                                        writer.WriteLine("GO");
+                                        if (s != null && !s.StartsWith("SET"))
+                                        {
+                                            writer.WriteLine(s.TrimEnd());
+                                            writer.WriteLine("GO");
+                                        }
                                     }
                                 }
                             }
                         }
-                        catch (Exception ex) { _logger.Error(serverName, "", $"Error scripting credential {c.Name}", ex); }
+                        catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting credential {c.Name}", ex); }
                     }
                 }
             }
-            catch (Exception ex) { _logger.WriteToLog(serverName, "", "Error", ex); }
+            catch (Exception ex) { _logger.WriteToLog(serverName, databaseName, "Error", ex); }
         }
 
         private void ScriptProxyAccounts(string serverName, string databaseName, Server server, string outputPath)
         {
             try
             {
-                _logger.Info(serverName, "", "Scripting proxy accounts...");
+                _logger.Info(serverName, databaseName, "Scripting proxy accounts...");
                 
                 string objectPath = Path.Combine(outputPath, "ProxyAccounts");
                 Directory.CreateDirectory(objectPath);
@@ -1811,7 +2073,8 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "ProxyAccounts.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Proxy Accounts for server: {serverName}");
+                        int objectCount = server.JobServer.ProxyAccounts.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "Proxy Accounts", objectCount);
                         writer.WriteLine("USE [msdb];");
                         writer.WriteLine("GO");
 
@@ -1858,18 +2121,18 @@ namespace SQLScripter.Services
                                 }
                             }
                         }
-                        catch (Exception ex) { _logger.Error(serverName, "", $"Error scripting proxy account {pa.Name}", ex); }
+                        catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting proxy account {pa.Name}", ex); }
                     }
                 }
             }
-            catch (Exception ex) { _logger.WriteToLog(serverName, "", "Error", ex); }
+            catch (Exception ex) { _logger.WriteToLog(serverName, databaseName, "Error", ex); }
         }
 
         private void ScriptServerDdlTriggers(string serverName, string databaseName, Server server, string outputPath)
         {
             try
             {
-                _logger.Info(serverName, "", "Scripting server DDL triggers...");
+                _logger.Info(serverName, databaseName, "Scripting server DDL triggers...");
                 
                 string objectPath = Path.Combine(outputPath, "ServerDdlTriggers");
                 Directory.CreateDirectory(objectPath);
@@ -1879,7 +2142,8 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "ServerDdlTriggers.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Server DDL Triggers for server: {serverName}");
+                        int objectCount = server.Triggers.Count;
+                        WriteFileHeader(writer, serverName, databaseName, "Server DDL Triggers", objectCount);
                         writer.WriteLine("USE [master];");
                         writer.WriteLine("GO");
 
@@ -1926,11 +2190,11 @@ namespace SQLScripter.Services
                                 }
                             }
                         }
-                        catch (Exception ex) { _logger.Error(serverName, "", $"Error scripting server DDL trigger {tr.Name}", ex); }
+                        catch (Exception ex) { _logger.Error(serverName, databaseName, $"Error scripting server DDL trigger {tr.Name}", ex); }
                     }
                 }
             }
-            catch (Exception ex) { _logger.WriteToLog(serverName, "", "Error", ex); }
+            catch (Exception ex) { _logger.WriteToLog(serverName, databaseName, "Error", ex); }
         }
 
         private void ScriptDatabaseDdlTriggers(string serverName, string databaseName, Database database, string outputPath)
@@ -1947,7 +2211,8 @@ namespace SQLScripter.Services
                     string fileName = Path.Combine(objectPath, "DatabaseDdlTriggers.sql");
                     using (var writer = new StreamWriter(fileName))
                     {
-                        writer.WriteLine($"-- Database DDL Triggers for database: {databaseName}");
+                        int objectCount = database.Triggers.Cast<DatabaseDdlTrigger>().Count(tr => !tr.IsSystemObject);
+                        WriteFileHeader(writer, serverName, databaseName, "Database DDL Triggers", objectCount);
                         writer.WriteLine($"USE [{databaseName}];");
                         writer.WriteLine("GO");
 
@@ -2023,7 +2288,8 @@ namespace SQLScripter.Services
                 string fileName = Path.Combine(objectPath, "Triggers.sql");
                 using (var writer = new StreamWriter(fileName))
                 {
-                    writer.WriteLine($"-- NFR Triggers for database: {databaseName}");
+                    int objectCount = database.Tables.Cast<Table>().Where(t => !t.IsSystemObject).Sum(t => t.Triggers.Count);
+                    WriteFileHeader(writer, serverName, databaseName, "NFR Triggers", objectCount);
                     writer.WriteLine($"USE [{databaseName}];");
                     writer.WriteLine("GO");
 
@@ -2075,7 +2341,8 @@ namespace SQLScripter.Services
                 string fileName = Path.Combine(objectPath, "ForeignKeys.sql");
                 using (var writer = new StreamWriter(fileName))
                 {
-                    writer.WriteLine($"-- NFR Foreign Keys for database: {databaseName}");
+                    int objectCount = database.Tables.Cast<Table>().Where(t => !t.IsSystemObject).Sum(t => t.ForeignKeys.Count);
+                    WriteFileHeader(writer, serverName, databaseName, "NFR Foreign Keys", objectCount);
                     writer.WriteLine($"USE [{databaseName}];");
                     writer.WriteLine("GO");
 
@@ -2113,33 +2380,67 @@ namespace SQLScripter.Services
         {
             try
             {
-                _logger.Info(serverName, "", "Scripting logins...");
+                _logger.Info(serverName, databaseName, "Scripting logins...");
                 
                 string objectPath = Path.Combine(outputPath, "Logins");
                 Directory.CreateDirectory(objectPath);
 
-                string fileName = Path.Combine(objectPath, "Logins.sql");
-                using (var writer = new StreamWriter(fileName))
+                if (_scriptOneFilePerObjectType)
                 {
-                    writer.WriteLine($"-- Logins for server: {serverName}");
-                    writer.WriteLine("USE [master];");
-                    writer.WriteLine("GO");
+                    string fileName = Path.Combine(objectPath, "Logins.sql");
+                    using (var writer = new StreamWriter(fileName))
+                    {
+                        int objectCount = server.Logins.Cast<Login>().Count(l => !l.IsSystemObject);
+                        WriteFileHeader(writer, serverName, databaseName, "Logins", objectCount);
+                        writer.WriteLine("USE [master];");
+                        writer.WriteLine("GO");
 
-                    int i = 1;
-                    // Attempt to use SMO for scripting logins as a fallback/primary if possible
+                        int i = 1;
+                        foreach (Login login in server.Logins)
+                        {
+                            if (login.IsSystemObject) continue;
+                            try
+                            {
+                                var scripts = login.Script(new ScriptingOptions { AnsiFile = true });
+                                if (scripts != null)
+                                {
+                                    writer.WriteLine($"-- {i++}: {login.Name}");
+                                    foreach (string? s in scripts)
+                                    {
+                                        if (s != null && !s.StartsWith("SET"))
+                                        {
+                                            writer.WriteLine(s.TrimEnd());
+                                            writer.WriteLine("GO");
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex) { _logger.Error(serverName, "", $"Error scripting login {login.Name}", ex); }
+                        }
+                    }
+                }
+                else
+                {
                     foreach (Login login in server.Logins)
                     {
                         if (login.IsSystemObject) continue;
                         try
                         {
-                            var scripts = login.Script(new ScriptingOptions { AnsiFile = true });
-                            if (scripts != null)
+                            string fileName = Path.Combine(objectPath, $"{FixObjectName(login.Name)}.sql");
+                            using (var writer = new StreamWriter(fileName))
                             {
                                 writer.WriteLine($"-- Login: {login.Name}");
-                                foreach (string? s in scripts)
+                                writer.WriteLine("USE [master];");
+                                writer.WriteLine("GO");
+
+                                var scripts = login.Script(new ScriptingOptions { AnsiFile = true });
+                                if (scripts != null)
                                 {
-                                    writer.WriteLine(s?.TrimEnd());
-                                    writer.WriteLine("GO");
+                                    foreach (string? s in scripts)
+                                    {
+                                        writer.WriteLine(s?.TrimEnd());
+                                        writer.WriteLine("GO");
+                                    }
                                 }
                             }
                         }
@@ -2156,6 +2457,20 @@ namespace SQLScripter.Services
                 return name;
 
             return name.Replace("[", "").Replace("]", "").Replace("\\", "_").Replace("/", "_");
+        }
+        private void WriteFileHeader(StreamWriter writer, string serverName, string databaseName, string objectDescription, int objectCount)
+        {
+            writer.WriteLine($"-- Created by SQLScripter");
+            writer.WriteLine($"-- {"Server:",-30} {serverName}");
+            if (!string.IsNullOrEmpty(databaseName) && databaseName != "")
+            {
+                writer.WriteLine($"-- {"Database:",-30} {databaseName}");
+            }
+            writer.WriteLine($"-- {"Date:",-30} {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            writer.WriteLine($"-- {"Description:",-30} {objectDescription}");
+            writer.WriteLine($"-- {"Number of objects scripted:",-30} {objectCount}");
+            writer.WriteLine($"-- --------------------------------------------------");
+            writer.WriteLine();
         }
     }
 }

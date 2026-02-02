@@ -76,13 +76,45 @@ namespace SQLScripter.Services
 
         private string FormatMessage(string server, string database, string message)
         {
+            if (string.IsNullOrEmpty(server) && string.IsNullOrEmpty(database))
+            {
+                return message;
+            }
+
+            // Ensure minimum widths and vertical alignment
             int serverWidth = Math.Max(Program.SqlServerMaxNameLength, 15);
-            int dbWidth = Math.Max(Program.SqlDatabaseMaxNameLength, 15);
+            int dbWidth = Math.Max(Program.SqlDatabaseMaxNameLength, 30);
 
             string s = (server ?? "").PadRight(serverWidth);
-            string d = (database ?? "").PadRight(dbWidth);
+            
+            if (string.IsNullOrEmpty(database))
+            {
+                // Align lifecycle messages with the MESSAGE column (the baseline)
+                // Baseline is: 3 spaces + "Database: " (10) + dbWidth + 3 spaces separator
+                int basePadding = 3 + 10 + dbWidth + 3;
+                
+                int offset = 0; 
 
-            return $"{s} {d} {message}";
+                // #2 "Connecting to server" needs to be 1 space back of the baseline.
+                if (message.Contains("Connecting to server"))
+                {
+                    offset = -1;
+                }
+                // #3 "Server processing completed" needs to be 1 space back from the baseline.
+                else if (message.Contains("Server processing completed"))
+                {
+                    offset = -1;
+                }
+
+                string padding = new string(' ', basePadding + offset);
+                return $"Server: {s}{padding}{message}";
+            }
+            else
+            {
+                // Active processing line with Database name
+                string d = database.PadRight(dbWidth);
+                return $"Server: {s}   Database: {d}   {message}";
+            }
         }
 
         private void WriteToConsole(string message, ConsoleColor color)

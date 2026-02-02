@@ -91,15 +91,35 @@ namespace SQLScripter.Services
                     return;
 
                 var cutoffDate = DateTime.Now.AddDays(-daysToKeep);
+                
+                // Cleanup directories
                 var directories = Directory.GetDirectories(basePath);
-
                 foreach (var directory in directories)
                 {
                     var dirInfo = new DirectoryInfo(directory);
                     if (dirInfo.LastWriteTime < cutoffDate)
                     {
                         DeleteFolder(directory);
-                        _logger.Info("", "", $"Deleted old folder: {directory}");
+                        _logger.Info("", "", $"Deleted old folder: {directory} (Last modified: {dirInfo.LastWriteTime})");
+                    }
+                }
+
+                // Cleanup files (like ZIP files)
+                var files = Directory.GetFiles(basePath);
+                foreach (var file in files)
+                {
+                    var fileInfo = new FileInfo(file);
+                    if (fileInfo.LastWriteTime < cutoffDate)
+                    {
+                        try
+                        {
+                            File.Delete(file);
+                            _logger.Info("", "", $"Deleted old file: {file} (Last modified: {fileInfo.LastWriteTime})");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.Error("", "", $"Failed to delete old file: {file}", ex);
+                        }
                     }
                 }
             }

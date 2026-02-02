@@ -19,6 +19,7 @@ SQLScripter is a professional-grade command-line tool that generates SQL scripts
 - ⚡ **Multi-threaded Processing** - Process multiple servers concurrently (up to 100 threads)
 - 📦 **ZIP Compression** - Optional password-protected ZIP archives
 - 🎯 **Selective Scripting** - Choose specific databases and object types
+- 🧹 **Automatic Cleanup** - Automatic retention management for old scripts and archives
 - 📝 **Comprehensive Logging** - Dual output to console and log file
 - 🔄 **Modern Architecture** - Built on .NET 8 with async/await patterns
 
@@ -86,7 +87,7 @@ Configuration is now incredibly streamlined.
 | `ZipPassword` | - | Password for ZIP archive (optional) |
 | `DeleteOutputFolderAfterZip` | `false` | Delete folder after creating ZIP |
 | `MaxConcurrentThreads` | `25` | Max concurrent server connections (1-100) |
-| `DaysToKeepFilesInOutputFolder` | `180` | Retention period for old files |
+| `DaysToKeepFilesInOutputFolder` | `180` | Automatic cleanup of folders and ZIPs older than X days |
 
 ### Server Settings
 
@@ -97,6 +98,59 @@ Configuration is now incredibly streamlined.
 | `ObjectTypes` | `all` | Object types to script (comma-separated or `all`) |
 | `WriteToConsole` | `false` | Print progress for this server to console |
 | `ConsoleForeGroundColour` | `White` | Color for this server's console output |
+
+### 🛠️ Advanced CLI Overrides
+
+SQLScripter provides a robust CLI for ad-hoc tasks. You can override any `appsettings.json` configuration directly:
+
+```bash
+# 1. Target a specific server and database (ignores config list)
+SQLScripter.exe --server PROD-SQL01 --database MarketingDB
+
+# 2. Script only specific object types to a custom folder
+SQLScripter.exe --types "Tables;Views;Procedures" --output "D:\SQL_Exports"
+
+# 3. High-speed parallel run (50 threads) with ZIP disabled
+SQLScripter.exe --threads 50 --zip false
+
+# 4. Target multiple databases on one server
+SQLScripter.exe --server "DEV-SQL" --database "Northwind;Pubs;AppLogs"
+
+# 5. Legacy Mode: Quick script of specific types for ALL configured servers
+SQLScripter.exe Tables Views Procedures
+```
+
+### 🔐 Credential Management
+
+Manage encrypted credentials safely from the CLI:
+
+```bash
+# Add a SQL login
+SQLScripter.exe add SERVER01 sa MyPassword
+
+# Add a Windows Account for Impersonation
+SQLScripter.exe add SERVER01 "DOMAIN\svc_sql" "SecretPass" win
+
+# List all stored credentials
+SQLScripter.exe list
+
+# Remove a specific credential
+SQLScripter.exe remove SERVER01
+```
+
+Type `SQLScripter.exe --help` for the full list of flags.
+
+## 💡 Common Scenarios
+
+### Automated Nightly Backup
+
+Run via Windows Task Scheduler to back up all databases to a central share:
+`SQLScripter.exe --output "\\BackupServer\SQL_Scripts" --zip true`
+
+### Quick Table Export for Developer
+
+Just grab tables for a specific project:
+`SQLScripter.exe --server PROD-DB --database "ProjectAlpha" --types "Tables" --zip false`
 
 ---
 
@@ -115,7 +169,7 @@ SQLScripter follows a "Smart Choice" logic for every server:
 ## 📊 Supported Object Types
 
 | Code | Object Type | Code | Object Type |
-|------|-------------|------|-------------|
+| :--- | :--- | :--- | :--- |
 | `TABLES` | Tables (U) | `INDEXES` | Indexes (I) |
 | `VIEWS` | Views (V) | `FOREIGNKEYS` | Foreign Keys (F) |
 | `PROCEDURES` | Stored Procedures (P) | `TRIGGERS` | Triggers (TR) |
@@ -147,5 +201,5 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 ---
 
-**Version:** 4.2.0.0 (2026-01-30)  
+**Version:** 4.2.1.0 (2026-02-03)  
 **Made with ❤️ for SQL Server DBAs**
