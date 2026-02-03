@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Runtime.Versioning;
 
 namespace SQLScripter.Services
 {
@@ -11,6 +13,7 @@ namespace SQLScripter.Services
         void Error(string server, string database, string message, Exception exception);
         void WriteToLog(string server, string database, string level, Exception exception);
         void RegisterServer(string serverName, bool writeToConsole, string color);
+        void LogEvent(string message, EventLogEntryType type);
     }
 
     public class LoggerService : ILoggerService
@@ -54,7 +57,7 @@ namespace SQLScripter.Services
 
         public void Info(string server, string database, string message)
         {
-            string formattedMessage = FormatMessage(server, database, message);
+            string formattedMessage = FormatMessage(server, database, message, "INFO");
             
             // Write to log file
             log.Info(formattedMessage);
@@ -70,7 +73,7 @@ namespace SQLScripter.Services
 
         public void Error(string server, string database, string message, Exception exception)
         {
-            string formattedMessage = FormatMessage(server, database, message);
+            string formattedMessage = FormatMessage(server, database, message, "ERROR");
             
             // Write to log file
             log.Error(formattedMessage, exception);
@@ -91,7 +94,7 @@ namespace SQLScripter.Services
         public void WriteToLog(string server, string database, string level, Exception exception)
         {
             string message = $"{exception.GetType().Name} - {exception.Message}";
-            string formattedMessage = FormatMessage(server, database, message);
+            string formattedMessage = FormatMessage(server, database, message, level.ToUpper());
             
             var settings = GetSettings(server);
 
@@ -133,11 +136,14 @@ namespace SQLScripter.Services
             }
         }
 
-        private string FormatMessage(string server, string database, string message)
+        private string FormatMessage(string server, string database, string message, string level)
         {
+            string ts = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss,fff");
+            string levelPart = level.PadRight(6);
+
             if (string.IsNullOrEmpty(server) && string.IsNullOrEmpty(database))
             {
-                return message;
+                return $"{ts}  {levelPart} {message}";
             }
 
             // Ensure minimum widths and vertical alignment
@@ -154,25 +160,20 @@ namespace SQLScripter.Services
                 
                 int offset = 0; 
 
-                // #2 "Connecting to server" needs to be 1 space back of the baseline.
-                if (message.Contains("Connecting to server"))
+                // Align lifecycle messages with the baseline column
+                if (message.Contains("Connecting to server") || message.Contains("Server processing completed"))
                 {
-                    offset = -1;
-                }
-                // #3 "Server processing completed" needs to be 1 space back from the baseline.
-                else if (message.Contains("Server processing completed"))
-                {
-                    offset = -1;
+                    offset = 0;
                 }
 
                 string padding = new string(' ', basePadding + offset);
-                return $"Server: {s}{padding}{message}";
+                return $"{ts}  {levelPart} Server: {s}{padding}{message}";
             }
             else
             {
                 // Active processing line with Database name
                 string d = database.PadRight(dbWidth);
-                return $"Server: {s}   Database: {d}   {message}";
+                return $"{ts}  {levelPart} Server: {s}   Database: {d}   {message}";
             }
         }
 
@@ -184,6 +185,30 @@ namespace SQLScripter.Services
                 Console.ForegroundColor = color;
                 Console.WriteLine(message);
                 Console.ForegroundColor = originalColor;
+            }
+        }
+
+        [SupportedOSPlatform("windows")]
+        public void LogEvent(string message, EventLogEntryType type)
+        {
+            const string source = "SQLScripter";
+            const string logName = "Application";
+
+            try
+            {
+                // Note: CreateEventSource requires Administrative privileges.
+                // If it doesn't exist and we aren't Admin, this will fail.
+                if (!EventLog.SourceExists(source))
+                {
+                    EventLog.CreateEventSource(source, logName);
+                }
+
+                EventLog.WriteEntry(source, message, type);
+            }
+            catch (Exception ex)
+            {
+                // Log the failure to the normal log so the user knows why it's missing
+                log.Debug($"Failed to write to Windows Event Log. (Note: Creating a new Event Source '{source}' requires Administrative privileges). Error: {ex.Message}");
             }
         }
     }

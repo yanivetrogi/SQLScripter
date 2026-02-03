@@ -36,9 +36,7 @@ namespace SQLScripter.Services
         {
             try
             {
-                // Ensure the database collections are refreshed and loaded
-                database.Refresh();
-                
+                // SMO will automatically lazy-load objects as needed; skipping Refresh() helps performance                
                 foreach (string type in objectTypes)
                 {
                     string objectType = type.Trim().ToUpper();

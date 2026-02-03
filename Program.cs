@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
@@ -84,6 +85,8 @@ namespace SQLScripter
                 // Print header with effective configuration
                 PrintHeader(applicationName, version, appSettings, logger);
 
+                logger.LogEvent($"{applicationName} v{version} started", EventLogEntryType.Information);
+
                 // Load servers from appsettings.json
                 var serversList = configuration.GetSection("Servers").Get<List<ServerSettings>>() ?? new List<ServerSettings>();
                 
@@ -131,6 +134,7 @@ namespace SQLScripter
                 await orchestrator.ProcessServersAsync(serversList, appSettings, applicationName);
 
                 logger.Info("", "", "Application finished successfully.");
+                logger.LogEvent($"{applicationName} finished successfully", EventLogEntryType.Information);
             }
             catch (Exception ex)
             {
@@ -138,6 +142,7 @@ namespace SQLScripter
                 if (logger != null)
                 {
                     logger.WriteToLog("", "", "Error", ex);
+                    logger.LogEvent($"SQLScripter fatal error: {ex.Message}", EventLogEntryType.Error);
                 }
                 else
                 {

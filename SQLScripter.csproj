@@ -10,9 +10,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <Version>4.3.0.0</Version>
-    <AssemblyVersion>4.3.0.0</AssemblyVersion>
-    <FileVersion>4.3.0.0</FileVersion>
+    <Version>4.3.1.0</Version>
+    <AssemblyVersion>4.3.1.0</AssemblyVersion>
+    <FileVersion>4.3.1.0</FileVersion>
     
     <!-- Disable auto-generation of assembly info since we have AssemblyInfo.cs -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -43,9 +43,11 @@
     
     <!-- JSON serialization -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="SharpZipLib" Version="1.4.2" />
     
     <!-- System packages -->
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.1" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.1" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <PackageReference Include="System.Security.Permissions" Version="8.0.0" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
@@ -64,20 +66,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Exclude .cs files from Zip folder - they conflict with the DLL -->
-    <Compile Remove="Zip\**\*.cs" />
-    <None Include="Zip\**\*.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <!-- Logging - upgraded to latest log4net from NuGet -->
     <PackageReference Include="log4net" Version="3.0.1" />
-    
-    <!-- Include SharpZipLib from local folder -->
-    <Reference Include="ICSharpCode.SharpZipLib">
-      <HintPath>Zip\ICSharpCode.SharpZipLib.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>

@@ -253,6 +253,9 @@ namespace SQLScripter.Services
                 var connection = new ServerConnection(new SqlConnection(connectionString));
                 var server = new Server(connection);
 
+                // PERFORMANCE OPTIMIZATION: Pre-fetch common properties to avoid "chatty" per-object queries
+                OptimizeSmoPerformance(server);
+
                 // Create output folder for this server with timestamp
                 string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
                 string serverPath = Path.Combine(appSettings.OutputFolder, $"{FixServerName(serverName)}_{timestamp}");
@@ -396,6 +399,34 @@ namespace SQLScripter.Services
                 return databaseName;
 
             return databaseName.Replace("[", "").Replace("]", "");
+        }
+        private void OptimizeSmoPerformance(Server server)
+        {
+            // By default, SMO only loads the Name and Schema properties.
+            // Accessing other properties like IsSystemObject triggers a separate query per object.
+            // These settings tell SMO to fetch these properties in the initial bulk request.
+
+            // Core Objects
+            server.SetDefaultInitFields(typeof(Table), "IsSystemObject", "Schema", "Name");
+            server.SetDefaultInitFields(typeof(View), "IsSystemObject", "Schema", "Name");
+            server.SetDefaultInitFields(typeof(StoredProcedure), "IsSystemObject", "Schema", "Name");
+            server.SetDefaultInitFields(typeof(UserDefinedFunction), "IsSystemObject", "Schema", "Name");
+            server.SetDefaultInitFields(typeof(Trigger), "IsSystemObject", "Name");
+            server.SetDefaultInitFields(typeof(Microsoft.SqlServer.Management.Smo.Index), "IsSystemObject", "Name");
+            server.SetDefaultInitFields(typeof(ForeignKey), "Name");
+            server.SetDefaultInitFields(typeof(Check), "Name");
+            
+            // Types & Assemblies
+            server.SetDefaultInitFields(typeof(UserDefinedType), "IsSystemObject", "Schema", "Name");
+            server.SetDefaultInitFields(typeof(UserDefinedTableType), "IsSystemObject", "Schema", "Name");
+            server.SetDefaultInitFields(typeof(UserDefinedDataType), "IsSystemObject", "Schema", "Name");
+            server.SetDefaultInitFields(typeof(SqlAssembly), "IsSystemObject", "Name");
+            
+            // Other Objects
+            server.SetDefaultInitFields(typeof(Synonym), "IsSystemObject", "Schema", "Name");
+            server.SetDefaultInitFields(typeof(Login), "Name");
+            server.SetDefaultInitFields(typeof(User), "Name");
+            server.SetDefaultInitFields(typeof(DatabaseRole), "Name");
         }
     }
 }

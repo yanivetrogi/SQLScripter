@@ -179,6 +179,33 @@ SQLScripter follows a "Smart Choice" logic for every server:
 
 ---
 
+## 🛠️ Windows Event Log Setup
+
+SQLScripter logs its lifecycle (Starts, Success, and Fatal Errors) to the Windows Application Event Log under the source `SQLScripter`.
+
+Because Windows requires Administrative privileges to register a new Event Source for the first time, you have two options for deployment:
+
+### Option 1: One-Time Admin Run
+
+Run the application as **Administrator** once on the target machine. It will automatically detect the missing source and register it.
+
+```cmd
+# Run as Admin
+SQLScripter.exe --help
+```
+
+### Option 2: DevOps / PowerShell (Recommended)
+
+Use the included `Register-EventSource.ps1` script during your deployment or server setup phase. This script must be run with elevated permissions.
+
+```powershell
+.\Register-EventSource.ps1
+```
+
+Once registered, the application will log events even when run by non-administrative service accounts.
+
+---
+
 ## 🏗️ Architecture
 
 - **.NET 8.0** - Modern cross-platform framework core
