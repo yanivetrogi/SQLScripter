@@ -74,9 +74,9 @@ namespace SQLScripter
                 if (options.Threads.HasValue) appSettings.MaxConcurrentThreads = options.Threads.Value;
                 if (options.Zip.HasValue) appSettings.ZipFolder = options.Zip.Value;
 
-                string applicationName = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyProductAttribute>()?.Product ?? "SQLScripter";
-                string version = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion 
-                                 ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString() 
+                string applicationName = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyProductAttribute>()?.Product ?? "SQLScripter";
+                string version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion 
+                                 ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString() 
                                  ?? "4.3.0.0";
 
                 Console.Title = $"{applicationName} v{version}";
