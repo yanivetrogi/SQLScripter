@@ -19,19 +19,7 @@ namespace SQLScripter
         
         public string ServerDisplayName => SQLServer.Replace("]", "").Replace("[", "");
 
-        public bool WriteToConsole { get; set; }
-                       
-        private string _ConsoleForeGroundColour = "White";
-        public string ConsoleForeGroundColour 
-        {             
-            get
-            {
-                if (Enum.TryParse<ConsoleColor>(_ConsoleForeGroundColour, true, out _))
-                    return _ConsoleForeGroundColour;
-                
-                return "White";
-            }
-            set { _ConsoleForeGroundColour = value; }
-        }       
+        public bool? WriteToConsole { get; set; }
+        public string? ConsoleForeGroundColour { get; set; }
     }   
 }

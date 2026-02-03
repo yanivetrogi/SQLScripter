@@ -10,12 +10,47 @@ namespace SQLScripter.Services
         void Info(string server, string database, string message);
         void Error(string server, string database, string message, Exception exception);
         void WriteToLog(string server, string database, string level, Exception exception);
+        void RegisterServer(string serverName, bool writeToConsole, string color);
     }
 
     public class LoggerService : ILoggerService
     {
         private static readonly log4net.ILog log = log4net.LogManager.GetLogger(typeof(LoggerService));
         private static readonly object _consoleLock = new object();
+        
+        private readonly bool _globalWriteToConsole;
+        private readonly ConsoleColor _globalDefaultColor;
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (bool writeToConsole, ConsoleColor color)> _serverOverrides = new(StringComparer.OrdinalIgnoreCase);
+
+        public LoggerService(bool writeToConsole = true, string foregroundColor = "White")
+        {
+            _globalWriteToConsole = writeToConsole;
+            if (!Enum.TryParse(foregroundColor, true, out _globalDefaultColor))
+            {
+                _globalDefaultColor = ConsoleColor.White;
+            }
+        }
+
+        public void RegisterServer(string serverName, bool writeToConsole, string color)
+        {
+            if (string.IsNullOrEmpty(serverName)) return;
+
+            if (!Enum.TryParse<ConsoleColor>(color, true, out var consoleColor))
+            {
+                consoleColor = _globalDefaultColor;
+            }
+
+            _serverOverrides[serverName] = (writeToConsole, consoleColor);
+        }
+
+        private (bool writeToConsole, ConsoleColor color) GetSettings(string server)
+        {
+            if (!string.IsNullOrEmpty(server) && _serverOverrides.TryGetValue(server, out var settings))
+            {
+                return settings;
+            }
+            return (_globalWriteToConsole, _globalDefaultColor);
+        }
 
         public void Info(string server, string database, string message)
         {
@@ -24,8 +59,13 @@ namespace SQLScripter.Services
             // Write to log file
             log.Info(formattedMessage);
             
+            var settings = GetSettings(server);
+
             // Write to console
-            WriteToConsole(formattedMessage, ConsoleColor.White);
+            if (settings.writeToConsole)
+            {
+                WriteToConsole(formattedMessage, settings.color);
+            }
         }
 
         public void Error(string server, string database, string message, Exception exception)
@@ -35,11 +75,16 @@ namespace SQLScripter.Services
             // Write to log file
             log.Error(formattedMessage, exception);
             
+            var settings = GetSettings(server);
+
             // Write to console
-            WriteToConsole(formattedMessage, ConsoleColor.Red);
-            if (exception != null)
+            if (settings.writeToConsole)
             {
-                WriteToConsole($"  Exception: {exception.Message}", ConsoleColor.Red);
+                WriteToConsole(formattedMessage, ConsoleColor.Red);
+                if (exception != null)
+                {
+                    WriteToConsole($"  Exception: {exception.Message}", ConsoleColor.Red);
+                }
             }
         }
 
@@ -48,28 +93,42 @@ namespace SQLScripter.Services
             string message = $"{exception.GetType().Name} - {exception.Message}";
             string formattedMessage = FormatMessage(server, database, message);
             
+            var settings = GetSettings(server);
+
             switch (level.ToLower())
             {
                 case "error":
                     log.Error(formattedMessage, exception);
-                    WriteToConsole(formattedMessage, ConsoleColor.Red);
-                    if (exception != null)
+                    if (settings.writeToConsole)
                     {
-                        WriteToConsole($"  Exception: {exception.Message}", ConsoleColor.Red);
+                        WriteToConsole(formattedMessage, ConsoleColor.Red);
+                        if (exception != null)
+                        {
+                            WriteToConsole($"  Exception: {exception.Message}", ConsoleColor.Red);
+                        }
                     }
                     break;
                 case "warn":
                 case "warning":
                     log.Warn(formattedMessage, exception);
-                    WriteToConsole(formattedMessage, ConsoleColor.Yellow);
+                    if (settings.writeToConsole)
+                    {
+                        WriteToConsole(formattedMessage, ConsoleColor.Yellow);
+                    }
                     break;
                 case "info":
                     log.Info(formattedMessage, exception);
-                    WriteToConsole(formattedMessage, ConsoleColor.White);
+                    if (settings.writeToConsole)
+                    {
+                        WriteToConsole(formattedMessage, settings.color);
+                    }
                     break;
                 default:
                     log.Debug(formattedMessage, exception);
-                    WriteToConsole(formattedMessage, ConsoleColor.Gray);
+                    if (settings.writeToConsole)
+                    {
+                        WriteToConsole(formattedMessage, ConsoleColor.Gray);
+                    }
                     break;
             }
         }

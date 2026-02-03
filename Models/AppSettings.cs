@@ -18,5 +18,15 @@ namespace SQLScripter.Models
         /// Higher values = faster processing but more CPU/memory usage.
         /// </summary>
         public int MaxConcurrentThreads { get; set; } = 25;
+
+        /// <summary>
+        /// Whether to write output to the console.
+        /// </summary>
+        public bool WriteToConsole { get; set; } = true;
+
+        /// <summary>
+        /// The foreground color for console output (e.g., White, Green, Cyan).
+        /// </summary>
+        public string ConsoleForeGroundColour { get; set; } = "White";
     }
 }

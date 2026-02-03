@@ -1,4 +1,4 @@
-# SQLScripter v4.2.0.0
+# SQLScripter v4.3.0.0
 
 A powerful, secure, and zero-config SQL Server database scripting tool for .NET 8
 
@@ -10,7 +10,7 @@ A powerful, secure, and zero-config SQL Server database scripting tool for .NET 
 
 ## 📖 Overview
 
-SQLScripter is a professional-grade command-line tool that generates SQL scripts for SQL Server databases. It supports scripting tables, views, stored procedures, functions, indexes, logins, jobs and many other database objects across multiple servers concurrently.
+SQLScripter is a professional-grade command-line tool that generates SQL Server schema scripts for SQL Server databases. It supports scripting tables, views, stored procedures, functions, indexes, logins, credentials jobs and many other database objects across multiple servers concurrently.
 
 ### ✨ Key Features
 
@@ -20,7 +20,7 @@ SQLScripter is a professional-grade command-line tool that generates SQL scripts
 - 📦 **ZIP Compression** - Optional password-protected ZIP archives
 - 🎯 **Selective Scripting** - Choose specific databases and object types
 - 🧹 **Automatic Cleanup** - Automatic retention management for old scripts and archives
-- 📝 **Comprehensive Logging** - Dual output to console and log file
+- 📝 **Advanced Logging** - Global and per-server console output & color configuration
 - 🔄 **Modern Architecture** - Built on .NET 8 with async/await patterns
 
 ---
@@ -94,8 +94,8 @@ Configuration is now incredibly streamlined.
 | Setting | Default | Description |
 | :--- | :--- | :--- |
 | `SQLServer` | - | Server name or instance (e.g., `SERVER01\INST`) |
-| `Databases` | `all` | Databases to script (comma-separated or `all`) |
-| `ObjectTypes` | `all` | Object types to script (comma-separated or `all`) |
+| `Databases` | `all` | Databases to script (semicolon-separated or `all`) |
+| `ObjectTypes` | `all` | Object types to script (semicolon-separated or `all`) |
 | `WriteToConsole` | `false` | Print progress for this server to console |
 | `ConsoleForeGroundColour` | `White` | Color for this server's console output |
 
@@ -201,5 +201,5 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 ---
 
-**Version:** 4.2.1.0 (2026-02-03)  
+**Version:** 4.3.0.0 (2026-02-03)  
 **Made with ❤️ for SQL Server DBAs**

@@ -70,6 +70,12 @@ namespace SQLScripter.Services
                         }
                     }
                 }
+
+                // Register server logging settings
+                foreach (var server in uniqueServers)
+                {
+                    _logger.RegisterServer(server.SQLServer, server.WriteToConsole ?? appSettings.WriteToConsole, server.ConsoleForeGroundColour ?? appSettings.ConsoleForeGroundColour);
+                }
                 
                 // Get thread count from configuration with validation
                 int maxThreads = appSettings.MaxConcurrentThreads;

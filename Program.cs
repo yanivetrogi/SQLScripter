@@ -158,7 +158,11 @@ namespace SQLScripter
             services.AddSingleton<IConfiguration>(configuration);
 
             // Add services
-            services.AddSingleton<ILoggerService, LoggerService>();
+            services.AddSingleton<ILoggerService>(sp => {
+                var config = sp.GetRequiredService<IConfiguration>();
+                var appSettings = config.GetSection("SQLScripter").Get<AppSettings>() ?? new AppSettings();
+                return new LoggerService(appSettings.WriteToConsole, appSettings.ConsoleForeGroundColour);
+            });
             services.AddSingleton<IConnectionService, ConnectionService>();
             services.AddSingleton<IFileManagementService, FileManagementService>();
             
@@ -177,12 +181,15 @@ namespace SQLScripter
         private static void PrintHeader(string appName, string version, AppSettings settings, ILoggerService logger)
         {
             // Print visual header to console only
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine("===================================================================================");
-            Console.WriteLine($"                                {appName} v{version}");            
-            Console.WriteLine("===================================================================================");
-            Console.ResetColor();
-            Console.WriteLine();
+            if (settings.WriteToConsole)
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("===================================================================================");
+                Console.WriteLine($"                                {appName} v{version}");            
+                Console.WriteLine("===================================================================================");
+                Console.ResetColor();
+                Console.WriteLine();
+            }
 
             // Print and log configuration
             logger.Info("", "", "Configuration:");
