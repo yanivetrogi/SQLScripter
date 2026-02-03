@@ -1,4 +1,4 @@
-# SQLScripter v4.3.0.0
+# SQLScripter v4.3.1.0
 
 A powerful, secure, and zero-config SQL Server database scripting tool for .NET 8
 
@@ -227,5 +227,5 @@ This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.t
 
 ---
 
-**Version:** 4.3.0.0 (2026-02-03)  
+**Version:** 4.3.1.0 (2026-02-03)  
 **Made with ❤️ for SQL Server DBAs**
