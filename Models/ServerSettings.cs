@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SQLScripter
+namespace SQLScripter.Models
 {
     /// <summary>
     /// Configuration for a specific SQL Server to be processed.

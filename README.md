@@ -191,7 +191,6 @@ SQLScripter follows a "Smart Choice" logic for every server:
 ## 📚 Further Documentation
 
 - **[Zero-Config Security Guide](Docs/CREDENTIALS_README.md)** - Detailed look at DPAPI and Impersonation.
-- **[Quick Command Reference](Docs/QUICK_REFERENCE.md)** - Fast lookup for build and run commands.
 
 ---
 

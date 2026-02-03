@@ -1,4 +1,4 @@
-# SQLScripter v4.2.0.0 Zero-Config Credentials Management
+# SQLScripter v4.3.0.0 Zero-Config Credentials Management
 
 ## Overview
 
@@ -86,9 +86,9 @@ For every server in your list, SQLScripter follows this logic:
 
 - **Zero Config**: Keep `SQLUser` and `SQLPassword` out of your JSON files entirely.
 - **Service Accounts**: Use the `win` switch for service accounts to keep their passwords secure but automated.
-- **Machine Specific**: Remember that `credentials.bin` is unique to your machine.
+- **Machine Specific**: Remember that the encrypted credential store is unique to your machine.
 
 ---
 
-**Version:** 4.2.0.0  
-**Last Updated:** 2026-01-30
+**Version:** 4.3.0.0  
+**Last Updated:** 2026-02-03

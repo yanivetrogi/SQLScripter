@@ -2,6 +2,7 @@ using System;
 using System.Data;
 using Microsoft.Data.SqlClient;
 using SQLScripter.Security;
+using SQLScripter.Models;
 
 namespace SQLScripter.Services
 {
